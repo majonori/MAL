@@ -17,13 +17,6 @@ MAL/
 ├── snippets/
 │   └── embed/                       # 出题人放在交互库里的代码
 │       └── polynomial_full.hpp      # 完整多项式库
-├── tests/                           # 示例代码
-│   ├── polynomial/
-│   │   ├── test_ntt.cpp
-│   │   ├── test_conv.cpp
-│   │   ├── test_inv.cpp
-│   │   └── ...
-│   └── run_all.sh
 ├── scripts/
 │   └── gen_embed.py                 # 把嵌入交互库的代码压行的脚本
 ├── README.md
