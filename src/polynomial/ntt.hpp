@@ -30,7 +30,7 @@ vector<mint>& ntt_init(int n) {
 }
 
 // DIF：系数 -> 蝴蝶变换后的点值（输出位逆序）
-valarray<mint> dif(const vector<mint>& src, int n) {
+valarray<mint> ntt_dif(const vector<mint>& src, int n) {
     auto &w = ntt_init(n);
     valarray<mint> a(mint(0), n);
     std::copy(src.begin(), src.end(), &a[0]);
@@ -48,7 +48,7 @@ valarray<mint> dif(const vector<mint>& src, int n) {
 }
 
 // DIT：蝴蝶变换后的点值 -> 系数（输入位逆序，输出自然序）
-vector<mint> dit(const valarray<mint>& src) {
+vector<mint> ntt_dit(const valarray<mint>& src) {
     int n = (int)src.size();
     auto &w = ntt_init(n);
     vector<mint> a(begin(src), end(src));
@@ -69,25 +69,25 @@ vector<mint> dit(const valarray<mint>& src) {
 }
 
 // 普通卷积
-vector<mint> multiply(const vector<mint>& a, const vector<mint>& b) {
+vector<mint> ntt_mul(const vector<mint>& a, const vector<mint>& b) {
     int need = (int)a.size() + (int)b.size() - 1;
     int len = glim(need);
-    auto A = dif(a, len);
-    auto B = dif(b, len);
+    auto A = ntt_dif(a, len);
+    auto B = ntt_dif(b, len);
     A *= B;
-    auto c = dit(A);
+    auto c = ntt_dit(A);
     c.resize(need);
     return c;
 }
 
 // 差卷积
-vector<mint> diff_conv(vector<mint> a, const vector<mint>& b) {
+vector<mint> ntt_conv(vector<mint> a, const vector<mint>& b) {
     std::reverse(a.begin(), a.end());
     int len = glim(a.size() + b.size() - 1);
-    auto A = dif(a, len);
-    auto B = dif(b, len);
+    auto A = ntt_dif(a, len);
+    auto B = ntt_dif(b, len);
     A *= B;
-    auto c = dit(A);
+    auto c = ntt_dit(A);
     c.erase(c.begin(), c.begin() + a.size() - 1);
     c.resize(b.size() - a.size() + 1);
     return c;
