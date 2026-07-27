@@ -22,7 +22,7 @@ vector<cpx>& fft_init(int n) {
     return w_fft;
 }
 
-valarray<cpx> dif(const vector<cpx>& src, int n) {
+valarray<cpx> fft_dif(const vector<cpx>& src, int n) {
     auto &w = fft_init(n);
     valarray<cpx> a(cpx(0), n);
     std::copy(src.begin(), src.end(), &a[0]);
@@ -40,7 +40,7 @@ valarray<cpx> dif(const vector<cpx>& src, int n) {
 }
 
 // DIT
-vector<cpx> dit(const valarray<cpx>& src) {
+vector<cpx> fft_dit(const valarray<cpx>& src) {
     int n = (int)src.size();
     auto &w = fft_init(n);
     vector<cpx> a(begin(src), end(src));
@@ -60,25 +60,25 @@ vector<cpx> dit(const valarray<cpx>& src) {
 }
 
 // 卷积
-vector<cpx> multiply(const vector<cpx>& a, const vector<cpx>& b) {
+vector<cpx> fft_mul(const vector<cpx>& a, const vector<cpx>& b) {
     int need = (int)a.size() + (int)b.size() - 1;
     int len = glim(need);
-    auto A = dif(a, len);
-    auto B = dif(b, len);
+    auto A = fft_dif(a, len);
+    auto B = fft_dif(b, len);
     A *= B;
-    auto c = dit(A);
+    auto c = fft_dit(A);
     c.resize(need);
     return c;
 }
 
 // 差卷积
-vector<cpx> diff_conv(vector<cpx> a, const vector<cpx>& b) {
+vector<cpx> fft_conv(vector<cpx> a, const vector<cpx>& b) {
     std::reverse(a.begin(), a.end());
     int len = glim(a.size() + b.size() - 1);
-    auto A = dif(a, len);
-    auto B = dif(b, len);
+    auto A = fft_dif(a, len);
+    auto B = fft_dif(b, len);
     A *= B;
-    auto c = dit(A);
+    auto c = fft_dit(A);
     c.erase(c.begin(), c.begin() + a.size() - 1);
     c.resize(b.size() - a.size() + 1);
     return c;
