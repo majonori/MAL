@@ -1,38 +1,85 @@
 #pragma once
 #include "../common/consts.hpp"
+#include <vector>
+#include <valarray>
 #include <algorithm>
 #include <cmath>
 
-#ifndef PI
-const double PI = std::acos(-1.0);
-#endif
+using std::vector;
+using std::valarray;
 
-void fft(vector<cpx> &a, bool invert) {
-    int n = (int)a.size();
-    for (int i = 1, j = 0; i < n; i++) {
-        int bit = n >> 1;
-        for (; j & bit; bit >>= 1) j ^= bit;
-        j ^= bit;
-        if (i < j) std::swap(a[i], a[j]);
+static vector<cpx> w_fft;
+
+vector<cpx>& fft_init(int n) {
+    if (w_fft.empty()) w_fft = {1};
+    while ((int)w_fft.size() < n) {
+        int m = (int)w_fft.size();
+        double ang = 2 * PI / (m * 2);
+        cpx wn(cos(ang), sin(ang));
+        w_fft.resize(m * 2);
+        for (int i = m; i < m * 2; i++) w_fft[i] = wn * w_fft[i ^ m];
     }
-    for (int len = 2; len <= n; len <<= 1) {
-        double ang = 2 * PI / len * (invert ? -1 : 1);
-        cpx wlen(std::cos(ang), std::sin(ang));
-        for (int i = 0; i < n; i += len) {
-            cpx w(1);
-            for (int j = 0; j < len / 2; j++) {
-                cpx u = a[i + j], v = a[i + j + len / 2] * w;
-                a[i + j] = u + v;
-                a[i + j + len / 2] = u - v;
-                w *= wlen;
+    return w_fft;
+}
+
+valarray<cpx> dif(const vector<cpx>& src, int n) {
+    auto &w = fft_init(n);
+    valarray<cpx> a(cpx(0), n);
+    std::copy(src.begin(), src.end(), &a[0]);
+    for (int len = n, k = n >> 1; k >= 1; len >>= 1, k >>= 1) {
+        for (int i = 0, t = 0; i < n; i += len, t++) {
+            for (int j = 0; j < k; j++) {
+                auto x = a[i + j];
+                auto y = a[i + j + k] * w[t];
+                a[i + j] = x + y;
+                a[i + j + k] = x - y;
             }
         }
     }
-    if (invert) {
-        for (cpx &x : a) x /= n;
-    }
+    return a;
 }
 
-/* Edited on 2026/07/27
-FFT 板子
-*/
+// DIT
+vector<cpx> dit(const valarray<cpx>& src) {
+    int n = (int)src.size();
+    auto &w = fft_init(n);
+    vector<cpx> a(begin(src), end(src));
+    for (int k = 1, len = 2; len <= n; k <<= 1, len <<= 1) {
+        for (int i = 0, t = 0; i < n; i += len, t++) {
+            for (int j = 0; j < k; j++) {
+                auto x = a[i + j];
+                auto y = a[i + j + k];
+                a[i + j] = x + y;
+                a[i + j + k] = (x - y) * w[t];
+            }
+        }
+    }
+    for (int i = 0; i < n; i++) a[i] /= n;
+    std::reverse(a.begin() + 1, a.end());
+    return a;
+}
+
+// 卷积
+vector<cpx> multiply(const vector<cpx>& a, const vector<cpx>& b) {
+    int need = (int)a.size() + (int)b.size() - 1;
+    int len = glim(need);
+    auto A = dif(a, len);
+    auto B = dif(b, len);
+    A *= B;
+    auto c = dit(A);
+    c.resize(need);
+    return c;
+}
+
+// 差卷积
+vector<cpx> diff_conv(vector<cpx> a, const vector<cpx>& b) {
+    std::reverse(a.begin(), a.end());
+    int len = glim(a.size() + b.size() - 1);
+    auto A = dif(a, len);
+    auto B = dif(b, len);
+    A *= B;
+    auto c = dit(A);
+    c.erase(c.begin(), c.begin() + a.size() - 1);
+    c.resize(b.size() - a.size() + 1);
+    return c;
+}
