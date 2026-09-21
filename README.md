@@ -1,24 +1,71 @@
-面向信息学竞赛的数学算法库。  
-包含大量小常数压行算法模板，赛题的交互式接口的模板就是基于本仓库。
+<img src="https://cdn.luogu.com.cn/upload/image_hosting/fij9kawb.webp" width = "300" alt="MAL" align=right />
+<div align="center">
 
-## 规范
+# MAL
+
+_Mathematical Algorithms Library for OI._
+
+[luogu 团队](https://www.luogu.com.cn/team/125531) | [历史赛题](https://www.luogu.com.cn/training/1083540) | [English](README_EN.md)
+
+> 有哪些优秀的百合同人作品？
+
+</div>
+
+---
+
+面向信息学竞赛的数学算法库。  
+包含大量小常数数学算法模板，并支持压行后直接嵌入赛题交互库。
+
+MAL 的核心目标是：  
+&emsp;&emsp;**数学向比赛题目的难度，不应过分受模板代码影响。**
+
+同时，MAL 不应影响不使用本库的选手正常完成题目。  
+接口使用方式见 [MAL接口测试](https://www.luogu.com.cn/problem/T793310)。
+
+## 原理
+
+根据 [luogu 的交互库说明](https://help.luogu.com.cn/manual/luogu/problem/interactive-problems)，  
+选手程序 `main.cpp` 会与题目提供的 `interactive_lib.cpp` 共同编译、链接。
+
+本地可以近似使用：
+```bash
+g++ -std=c++14 -O2 interactive_lib.cpp main.cpp -o main
+```  
+因此，MAL 可以将算法实现放入 `interactive_lib.cpp`，选手只需声明并调用对应接口。
+
+一般交互题会由 `interactive_lib.cpp` 接管 `main()`；  
+MAL 的使用方式不同：库代码只提供函数，不接管选手程序，因此不使用 MAL 的选手仍可正常作答。
+
+## 仓库结构
 
 ```text
 MAL/
-├── src/                             # 模块化开发源文件
+├── bundles/             # 发布：压行代码，与源码文件结构对应
+│   ├── dgf/
+│   │   ├── main.hpp           # 自动合并、压行版本
+│   │   └── README.md          # 使用手册 / 算法说明
+│   └── interactive_lib.cpp    # 洛谷交互库版本
+├── include/             # 开发：模块化源码
 │   ├── common/
-│   │   ├── consts.hpp               # 类型别名与常用常量
-│   │   └── modint.hpp               # 静态模数类模板（默认 998244353）
-│   ├── polynomial/                  # 多项式全家桶
-│   │   ├── ntt.hpp                  # NTT
-│   │   ├── fft.hpp                  # FFT
-│   │   └── polynomial.hpp           # 总头文件，包含上述全部
-│   └── ...                          # 未来可扩展的数论、线性代数等
-├── snippets/
-│   └── embed/                       # 出题人放在交互库里的代码
-│       └── polynomial_full.hpp      # 完整多项式库
-├── scripts/
-│   └── gen_embed.py                 # 把嵌入交互库的代码压行的脚本
+│   │   ├── modint.hpp         # 静态模数类模板
+│   │   └── ...                # 下文略去这些省略号
+│   ├── poly/                  # 多项式全家桶
+│   │   └── ntt.hpp
+│   └── dgf/                   # dgf 全家桶
+│       ├── convolution.hpp
+│       ├── transform.hpp      # zeta / mobius / gcd / lcm
+│       └── fps.hpp            # inv / ln / exp / pow ...
+├── scripts/             # 构建：脚本合并工具
+│   └── build.cpp              # 依赖解析 + 合并 + 压行
+├── tests/               # 验证：正确性与性能测试
+│   └── benchmark/
 ├── README.md
 └── README_EN.md
 ```
+
+## 规范
+
+- include/ 保存可读、可维护的正式源码。
+- 压行等操作统一由脚本完成，不直接污染源码。
+- 库代码默认兼容 C++14。
+- 尽量避免宏污染、全局状态和命名冲突。
