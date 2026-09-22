@@ -41,27 +41,41 @@ MAL 的使用方式不同：库代码只提供函数，不接管选手程序，�
 ```text
 MAL/
 ├── bundles/             # 发布：压行代码，与源码文件结构对应
-│   ├── dgf/
-│   │   ├── main.hpp           # 自动合并、压行版本
-│   │   └── README.md          # 使用手册 / 算法说明
+│   ├── common/
+│   │   └── main.cpp           # common 模块合并、压行版本
+│   ├── hp/
+│   │   ├── main.cpp           # 高精度模块合并、压行版本
+│   │   └── README.md          # 高精度模块使用手册 / 算法说明
+│   ├── poly/
+│   │   └── main.cpp           # poly 模块合并、压行版本
 │   └── interactive_lib.cpp    # 洛谷交互库版本
+├── examples/             # 洛谷题目示例
+│   ├── ex1.cpp                # P2293 单文件提交版
+│   ├── ex2.cpp                # P5432 单文件提交版
+│   └── src/
+│       ├── ex1.cpp            # P2293 可读源码
+│       └── ex2.cpp            # P5432 可读源码
 ├── include/             # 开发：模块化源码
 │   ├── common/
-│   │   ├── modint.hpp         # 静态模数类模板
-│   │   └── ...                # 下文略去这些省略号
-│   ├── poly/                  # 多项式全家桶
-│   │   └── ntt.hpp
+│   │   ├── consts.hpp
+│   │   └── modint.hpp         # 静态模数类模板
 │   ├── hp/                    # 高精度整数 / 二进制浮点
-│   │   ├── bigint.hpp
-│   │   └── bigfloat.hpp
-│   └── dgf/                   # dgf 全家桶
-│       ├── convolution.hpp
-│       ├── transform.hpp      # zeta / mobius / gcd / lcm
-│       └── fps.hpp            # inv / ln / exp / pow ...
+│   │   ├── bigfloat.hpp
+│   │   └── bigint.hpp
+│   └── poly/                  # 多项式全家桶
+│       ├── fft.hpp
+│       └── ntt.hpp
 ├── scripts/             # 构建：脚本合并工具
 │   └── build.cpp              # 依赖解析 + 合并 + 压行
 ├── tests/               # 验证：正确性与性能测试
-│   └── benchmark/
+│   ├── benchmark/
+│   │   └── bench_hp.cpp
+│   └── hp/
+│       ├── test_bigfloat.cpp
+│       └── test_bigint.cpp
+├── ex1.cpp                 # 根目录提交版，等价于 examples/ex1.cpp
+├── ex2.cpp                 # 根目录提交版，等价于 examples/ex2.cpp
+├── .gitignore
 ├── README.md
 └── README_EN.md
 ```

@@ -41,27 +41,41 @@ MAL is used differently: the library code only provides functions and does not t
 ```text
 MAL/
 ├── bundles/             # Release: minified code, corresponding to the source file structure
-│   ├── dgf/
-│   │   ├── main.hpp           # Auto-merged, minified version
+│   ├── common/
+│   │   └── main.cpp           # Merged, minified common module
+│   ├── hp/
+│   │   ├── main.cpp           # Merged, minified high-precision module
 │   │   └── README.md          # User manual / Algorithm notes
+│   ├── poly/
+│   │   └── main.cpp           # Merged, minified polynomial module
 │   └── interactive_lib.cpp    # Luogu interactive library version
+├── examples/             # Luogu problem examples
+│   ├── ex1.cpp                # P2293 standalone submission
+│   ├── ex2.cpp                # P5432 standalone submission
+│   └── src/
+│       ├── ex1.cpp            # P2293 readable source
+│       └── ex2.cpp            # P5432 readable source
 ├── include/             # Development: modular source code
 │   ├── common/
-│   │   ├── modint.hpp         # Static modulus class template
-│   │   └── ...                # ellipses omitted below
-│   ├── poly/                  # Polynomial full toolkit
-│   │   └── ntt.hpp
+│   │   ├── consts.hpp
+│   │   └── modint.hpp         # Static modulus class template
 │   ├── hp/                    # Big integers / binary floating point
-│   │   ├── bigint.hpp
-│   │   └── bigfloat.hpp
-│   └── dgf/                   # DGF full toolkit
-│       ├── convolution.hpp
-│       ├── transform.hpp      # zeta / mobius / gcd / lcm
-│       └── fps.hpp            # inv / ln / exp / pow ...
+│   │   ├── bigfloat.hpp
+│   │   └── bigint.hpp
+│   └── poly/                  # Polynomial full toolkit
+│       ├── fft.hpp
+│       └── ntt.hpp
 ├── scripts/             # Build: script merging tools
 │   └── build.cpp              # Dependency resolution + merging + Minify
 ├── tests/               # Verification: correctness and performance tests
-│   └── benchmark/
+│   ├── benchmark/
+│   │   └── bench_hp.cpp
+│   └── hp/
+│       ├── test_bigfloat.cpp
+│       └── test_bigint.cpp
+├── ex1.cpp                 # Root-level standalone P2293 submission
+├── ex2.cpp                 # Root-level standalone P5432 submission
+├── .gitignore
 ├── README.md
 └── README_EN.md
 ```
