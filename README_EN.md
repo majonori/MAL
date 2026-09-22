@@ -84,6 +84,25 @@ Precision ranges, algorithm crossovers and memory/time estimates for the
 high-precision module are documented in
 [`bundles/hp/README.md`](bundles/hp/README.md).
 
+## Namespaces
+
+All library code lives under `namespace mal`, with implementation details in
+sub-namespaces such as `mal::bigint_detail`. Public interfaces are called
+through `mal::`, for example:
+
+```cpp
+mal::BigInt x("12345678901234567890");
+mal::BigFloat y("1.25", 512);
+mal::fft_mul(a, b);
+mal::ntt_mul(a, b);
+mal::mint<998244353> z(1);
+```
+
+Headers do not inject `using` declarations, global functions or macros into
+the global namespace. `interactive_lib.cpp` exposes only `mal::` symbols, so
+a contestant's global function with the same name cannot collide with MAL at
+link time.
+
 ## Guidelines
 
 - `include/` stores readable, maintainable canonical source code.

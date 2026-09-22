@@ -83,6 +83,23 @@ MAL/
 高精度模块的精度档位、算法切换点与内存/时间量级见
 [`bundles/hp/README.md`](bundles/hp/README.md)。
 
+## 命名空间
+
+所有库代码都位于 `namespace mal` 中，内部实现放在 `mal::bigint_detail`
+等子命名空间。公开接口统一通过 `mal::` 调用，例如：
+
+```cpp
+mal::BigInt x("12345678901234567890");
+mal::BigFloat y("1.25", 512);
+mal::fft_mul(a, b);
+mal::ntt_mul(a, b);
+mal::mint<998244353> z(1);
+```
+
+头文件不会向全局命名空间引入 `using`、全局函数或宏。`interactive_lib.cpp`
+只提供 `mal::` 下的符号，因此即使选手的 `main.cpp` 定义了同名全局函数，
+也不会与 MAL 库发生链接期重名。
+
 ## 规范
 
 - include/ 保存可读、可维护的正式源码。

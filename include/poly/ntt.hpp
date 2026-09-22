@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <cstddef>
 
+namespace mal {
+
 using std::vector;
 using std::valarray;
 
@@ -15,7 +17,7 @@ using ntt_mint = mint<NTT_MOD>;
 // 单位根表（静态）
 static vector<ntt_mint> wt;
 
-vector<ntt_mint>& ntt_init(int n) {
+inline vector<ntt_mint>& ntt_init(int n) {
     if (wt.empty()) wt = {1};
     while ((int)wt.size() < n) {
         int m = (int)wt.size();
@@ -27,7 +29,7 @@ vector<ntt_mint>& ntt_init(int n) {
 }
 
 // DIF：系数 -> 蝴蝶变换后的点值（输出位逆序）
-valarray<ntt_mint> ntt_dif(const vector<ntt_mint>& src, int n) {
+inline valarray<ntt_mint> ntt_dif(const vector<ntt_mint>& src, int n) {
     auto &w = ntt_init(n);
     valarray<ntt_mint> a(ntt_mint(0), n);
     std::copy(src.begin(), src.end(), &a[0]);
@@ -45,7 +47,7 @@ valarray<ntt_mint> ntt_dif(const vector<ntt_mint>& src, int n) {
 }
 
 // DIT：蝴蝶变换后的点值 -> 系数（输入位逆序，输出自然序）
-vector<ntt_mint> ntt_dit(const valarray<ntt_mint>& src) {
+inline vector<ntt_mint> ntt_dit(const valarray<ntt_mint>& src) {
     int n = (int)src.size();
     auto &w = ntt_init(n);
     vector<ntt_mint> a(begin(src), end(src));
@@ -66,7 +68,7 @@ vector<ntt_mint> ntt_dit(const valarray<ntt_mint>& src) {
 }
 
 // 普通卷积
-vector<ntt_mint> ntt_mul(const vector<ntt_mint>& a, const vector<ntt_mint>& b) {
+inline vector<ntt_mint> ntt_mul(const vector<ntt_mint>& a, const vector<ntt_mint>& b) {
     int need = (int)a.size() + (int)b.size() - 1;
     int len = glim(need);
     auto A = ntt_dif(a, len);
@@ -78,7 +80,7 @@ vector<ntt_mint> ntt_mul(const vector<ntt_mint>& a, const vector<ntt_mint>& b) {
 }
 
 // 差卷积
-vector<ntt_mint> ntt_conv(vector<ntt_mint> a, const vector<ntt_mint>& b) {
+inline vector<ntt_mint> ntt_conv(vector<ntt_mint> a, const vector<ntt_mint>& b) {
     std::reverse(a.begin(), a.end());
     int len = glim(a.size() + b.size() - 1);
     auto A = ntt_dif(a, len);
@@ -89,3 +91,5 @@ vector<ntt_mint> ntt_conv(vector<ntt_mint> a, const vector<ntt_mint>& b) {
     c.resize(b.size() - a.size() + 1);
     return c;
 }
+
+} // namespace mal

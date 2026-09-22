@@ -5,12 +5,14 @@
 #include <algorithm>
 #include <cmath>
 
+namespace mal {
+
 using std::vector;
 using std::valarray;
 
 static vector<cpx> w_fft;
 
-vector<cpx>& fft_init(int n) {
+inline vector<cpx>& fft_init(int n) {
     if (w_fft.empty()) w_fft = {1};
     while ((int)w_fft.size() < n) {
         int m = (int)w_fft.size();
@@ -22,7 +24,7 @@ vector<cpx>& fft_init(int n) {
     return w_fft;
 }
 
-valarray<cpx> fft_dif(const vector<cpx>& src, int n) {
+inline valarray<cpx> fft_dif(const vector<cpx>& src, int n) {
     auto &w = fft_init(n);
     valarray<cpx> a(cpx(0), n);
     std::copy(src.begin(), src.end(), &a[0]);
@@ -40,7 +42,7 @@ valarray<cpx> fft_dif(const vector<cpx>& src, int n) {
 }
 
 // DIT
-vector<cpx> fft_dit(const valarray<cpx>& src) {
+inline vector<cpx> fft_dit(const valarray<cpx>& src) {
     int n = (int)src.size();
     auto &w = fft_init(n);
     vector<cpx> a(begin(src), end(src));
@@ -60,7 +62,7 @@ vector<cpx> fft_dit(const valarray<cpx>& src) {
 }
 
 // 卷积
-vector<cpx> fft_mul(const vector<cpx>& a, const vector<cpx>& b) {
+inline vector<cpx> fft_mul(const vector<cpx>& a, const vector<cpx>& b) {
     int need = (int)a.size() + (int)b.size() - 1;
     int len = glim(need);
     auto A = fft_dif(a, len);
@@ -72,7 +74,7 @@ vector<cpx> fft_mul(const vector<cpx>& a, const vector<cpx>& b) {
 }
 
 // 差卷积
-vector<cpx> fft_conv(vector<cpx> a, const vector<cpx>& b) {
+inline vector<cpx> fft_conv(vector<cpx> a, const vector<cpx>& b) {
     std::reverse(a.begin(), a.end());
     int len = glim(a.size() + b.size() - 1);
     auto A = fft_dif(a, len);
@@ -83,3 +85,5 @@ vector<cpx> fft_conv(vector<cpx> a, const vector<cpx>& b) {
     c.resize(b.size() - a.size() + 1);
     return c;
 }
+
+} // namespace mal

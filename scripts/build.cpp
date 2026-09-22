@@ -5,6 +5,9 @@
 #include<dirent.h>
 #include<sys/stat.h>
 #endif
+
+namespace {
+
 typedef unsigned int u4;
 typedef unsigned long long u8;
 using str=std::string;
@@ -36,7 +39,7 @@ std::vector<str>ls(const str&s){
 inline bool isdir(const str&s){struct stat x;return !stat(s.c_str(),&x)&&S_ISDIR(x.st_mode);}
 inline void md(const str&s){if(!s.empty()&&s!="."&&!isdir(s)&&mkdir(s.c_str(),0755)&&errno!=EEXIST)throw std::runtime_error("cannot mkdir "+s);}
 std::vector<str>ls(const str&s){
-  std::vector<str>a;DIR*d=opendir(s.c_str());if(!d)return a;for(dirent*e;e=readdir(d);){str x=e->d_name;if(x!="."&&x!="..")a.push_back(x);}closedir(d);std::sort(a.begin(),a.end());return a;
+  std::vector<str>a;DIR*d=opendir(s.c_str());if(!d)return a;for(dirent*e;(e=readdir(d));){str x=e->d_name;if(x!="."&&x!="..")a.push_back(x);}closedir(d);std::sort(a.begin(),a.end());return a;
 }
 #endif
 void mkdirs(str s){s=norm(s);if(s=="."||s.empty())return;str h;if(s[0]=='/')h="/";else if(s.size()>2&&s[1]==':')h=s.substr(0,3);for(size_t i=h.size(),j;i<=s.size();i=j+1){j=s.find('/',i);if(j==str::npos)j=s.size();str x=s.substr(i,j-i);if(x.empty())continue;h+=(h.empty()||h.back()=='/'?"":"/")+x;md(h);}}
@@ -46,7 +49,8 @@ str read(const str&s){
 }
 inline bool pre(const str&s,u4 p,const char*t){
   while(p<s.size()&&(s[p]==' '||s[p]=='\t'))++p;
-  if(p>=s.size()||s[p++]!='#')return 0;while(p<s.size()&&(s[p]==' '||s[p]=='\t'))++p;
+  if(p>=s.size()||s[p++]!='#')return 0;
+  while(p<s.size()&&(s[p]==' '||s[p]=='\t'))++p;
   u4 n=strlen(t);return s.compare(p,n,t)==0&&(p+n==s.size()||!id(s[p+n]));
 }
 str dep(str cur,str x){
@@ -93,7 +97,8 @@ str pack(const str&s){
     }
     if((s[i]=='R'&&i+1<n&&s[i+1]=='\"')||s[i]=='\"'||s[i]=='\''){
       if(s[i]=='R'){
-        if(gap&&!o.empty()&&join(o.back(),'R'))o+=' ';gap=0;o+=s[i++];o+=s[i++];
+        if(gap&&!o.empty()&&join(o.back(),'R'))o+=' ';
+        gap=0;o+=s[i++];o+=s[i++];
         str d;while(i<n&&s[i]!='('){d+=s[i];o+=s[i++];}if(i<n)o+=s[i++];str e=")"+d+"\"";
         while(i<n){if(s.compare(i,e.size(),e)==0){o+=e;i+=e.size();break;}o+=s[i++];}continue;
       }
@@ -101,7 +106,8 @@ str pack(const str&s){
     }
     put(s[i++]);
   }
-  while(!o.empty()&&ws(o.back()))o.pop_back();o+='\n';return o;
+  while(!o.empty()&&ws(o.back()))o.pop_back();
+  o+='\n';return o;
 }
 inline bool src(const str&s){
   size_t p=s.find_last_of('.');if(p==str::npos)return 0;str x=s.substr(p);return x==".h"||x==".hh"||x==".hpp"||x==".hxx"||x==".c"||x==".cc"||x==".cpp"||x==".cxx";
@@ -131,6 +137,9 @@ void all(str in,str out){
   for(str d:ds){str r=rel(d,in),fn=norm(out+(r.empty()?"":"/"+r)+"/main.cpp");write(fn,build(direct(d)));fprintf(stderr,"build: %s\n",fn.c_str());}
   str fn=norm(out+"/interactive_lib.cpp");write(fn,build(fs));fprintf(stderr,"build: %s\n",fn.c_str());
 }
+
+} // namespace
+
 int main(int argc,char**argv){
   try{
     if(argc==1){autoall();return 0;}

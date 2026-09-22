@@ -6,6 +6,8 @@
 - `bigfloat.hpp`：二进制高精度浮点数，值为 `mantissa * 2^exponent`，支持 `+ - * / exp log`。
 
 构建后可直接包含 `bundles/hp/main.cpp`。
+所有接口都位于 `namespace mal` 中，调用时使用 `mal::BigInt`、
+`mal::BigFloat` 等限定名，不向全局命名空间注入符号。
 
 ## 示例
 

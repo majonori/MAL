@@ -1,6 +1,8 @@
 #pragma once
 #include "consts.hpp"
 
+namespace mal {
+
 template <int MOD>
 struct mint {
     int v;
@@ -22,6 +24,8 @@ struct mint {
     bool operator==(mint b) const { return v == b.v; }
     bool operator!=(mint b) const { return v != b.v; }
 };
+
+} // namespace mal
 
 /* Edited on 2026/07/27
 提供一个零开销的模类
