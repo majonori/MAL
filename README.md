@@ -49,12 +49,6 @@ MAL/
 │   ├── poly/
 │   │   └── main.cpp           # poly 模块合并、压行版本
 │   └── interactive_lib.cpp    # 洛谷交互库版本
-├── examples/             # 洛谷题目示例
-│   ├── ex1.cpp                # P2293 单文件提交版
-│   ├── ex2.cpp                # P5432 单文件提交版
-│   └── src/
-│       ├── ex1.cpp            # P2293 可读源码
-│       └── ex2.cpp            # P5432 可读源码
 ├── include/             # 开发：模块化源码
 │   ├── common/
 │   │   ├── consts.hpp
@@ -73,8 +67,6 @@ MAL/
 │   └── hp/
 │       ├── test_bigfloat.cpp
 │       └── test_bigint.cpp
-├── ex1.cpp                 # 根目录提交版，等价于 examples/ex1.cpp
-├── ex2.cpp                 # 根目录提交版，等价于 examples/ex2.cpp
 ├── .gitignore
 ├── README.md
 └── README_EN.md
@@ -82,6 +74,9 @@ MAL/
 
 高精度模块的精度档位、算法切换点与内存/时间量级见
 [`bundles/hp/README.md`](bundles/hp/README.md)。
+
+仓库不保存内嵌 MAL 实现的选手提交示例。题目侧的 `interactive_lib.cpp`
+负责提供 `mal::` 接口，选手代码只需声明并调用这些接口。
 
 ## 命名空间
 

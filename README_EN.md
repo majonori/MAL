@@ -49,12 +49,6 @@ MAL/
 │   ├── poly/
 │   │   └── main.cpp           # Merged, minified polynomial module
 │   └── interactive_lib.cpp    # Luogu interactive library version
-├── examples/             # Luogu problem examples
-│   ├── ex1.cpp                # P2293 standalone submission
-│   ├── ex2.cpp                # P5432 standalone submission
-│   └── src/
-│       ├── ex1.cpp            # P2293 readable source
-│       └── ex2.cpp            # P5432 readable source
 ├── include/             # Development: modular source code
 │   ├── common/
 │   │   ├── consts.hpp
@@ -73,8 +67,6 @@ MAL/
 │   └── hp/
 │       ├── test_bigfloat.cpp
 │       └── test_bigint.cpp
-├── ex1.cpp                 # Root-level standalone P2293 submission
-├── ex2.cpp                 # Root-level standalone P5432 submission
 ├── .gitignore
 ├── README.md
 └── README_EN.md
@@ -83,6 +75,10 @@ MAL/
 Precision ranges, algorithm crossovers and memory/time estimates for the
 high-precision module are documented in
 [`bundles/hp/README.md`](bundles/hp/README.md).
+
+The repository does not keep contestant-submission examples that embed MAL.
+The problem-side `interactive_lib.cpp` provides the `mal::` interfaces, and
+contestant code should only declare and call them.
 
 ## Namespaces
 
