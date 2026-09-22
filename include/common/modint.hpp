@@ -1,4 +1,6 @@
 #pragma once
+#include "consts.hpp"
+
 template <int MOD>
 struct mint {
     int v;

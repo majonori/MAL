@@ -51,6 +51,9 @@ MAL/
 │   │   └── ...                # ellipses omitted below
 │   ├── poly/                  # Polynomial full toolkit
 │   │   └── ntt.hpp
+│   ├── hp/                    # Big integers / binary floating point
+│   │   ├── bigint.hpp
+│   │   └── bigfloat.hpp
 │   └── dgf/                   # DGF full toolkit
 │       ├── convolution.hpp
 │       ├── transform.hpp      # zeta / mobius / gcd / lcm
@@ -62,6 +65,10 @@ MAL/
 ├── README.md
 └── README_EN.md
 ```
+
+Precision ranges, algorithm crossovers and memory/time estimates for the
+high-precision module are documented in
+[`bundles/hp/README.md`](bundles/hp/README.md).
 
 ## Guidelines
 

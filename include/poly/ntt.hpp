@@ -1,5 +1,6 @@
 #pragma once
 #include "../common/modint.hpp"   // 提供 mint<MOD>
+#include "../common/consts.hpp"   // 提供 glim
 #include <vector>
 #include <valarray>
 #include <algorithm>
@@ -9,20 +10,16 @@ using std::vector;
 using std::valarray;
 
 constexpr int NTT_MOD = 998244353;
-using mint = mint<NTT_MOD>;
-
-inline int glim(size_t x) {
-    return x == 1 ? 1 : 2 << (31 ^ __builtin_clz((int)x - 1)); // 等价 2<<__lg(x-1)
-}
+using ntt_mint = mint<NTT_MOD>;
 
 // 单位根表（静态）
-static vector<mint> wt;
+static vector<ntt_mint> wt;
 
-vector<mint>& ntt_init(int n) {
+vector<ntt_mint>& ntt_init(int n) {
     if (wt.empty()) wt = {1};
     while ((int)wt.size() < n) {
         int m = (int)wt.size();
-        mint wn = mint(3).pow((NTT_MOD - 1) / m >> 2);
+        ntt_mint wn = ntt_mint(3).pow((NTT_MOD - 1) / m >> 2);
         wt.resize(m << 1);
         for (int i = m; i < m << 1; i++) wt[i] = wn * wt[i ^ m];
     }
@@ -30,9 +27,9 @@ vector<mint>& ntt_init(int n) {
 }
 
 // DIF：系数 -> 蝴蝶变换后的点值（输出位逆序）
-valarray<mint> ntt_dif(const vector<mint>& src, int n) {
+valarray<ntt_mint> ntt_dif(const vector<ntt_mint>& src, int n) {
     auto &w = ntt_init(n);
-    valarray<mint> a(mint(0), n);
+    valarray<ntt_mint> a(ntt_mint(0), n);
     std::copy(src.begin(), src.end(), &a[0]);
     for (int len = n, k = n >> 1; k >= 1; len >>= 1, k >>= 1) {
         for (int i = 0, t = 0; i < n; i += len, t++) {
@@ -48,10 +45,10 @@ valarray<mint> ntt_dif(const vector<mint>& src, int n) {
 }
 
 // DIT：蝴蝶变换后的点值 -> 系数（输入位逆序，输出自然序）
-vector<mint> ntt_dit(const valarray<mint>& src) {
+vector<ntt_mint> ntt_dit(const valarray<ntt_mint>& src) {
     int n = (int)src.size();
     auto &w = ntt_init(n);
-    vector<mint> a(begin(src), end(src));
+    vector<ntt_mint> a(begin(src), end(src));
     for (int k = 1, len = 2; len <= n; k <<= 1, len <<= 1) {
         for (int i = 0, t = 0; i < n; i += len, t++) {
             for (int j = 0; j < k; j++) {
@@ -62,14 +59,14 @@ vector<mint> ntt_dit(const valarray<mint>& src) {
             }
         }
     }
-    mint inv_n = mint::mod - (mint::mod - 1) / n;
+    ntt_mint inv_n = NTT_MOD - (NTT_MOD - 1) / n;
     for (int i = 0; i < n; i++) a[i] *= inv_n;
     std::reverse(a.begin() + 1, a.end());
     return a;
 }
 
 // 普通卷积
-vector<mint> ntt_mul(const vector<mint>& a, const vector<mint>& b) {
+vector<ntt_mint> ntt_mul(const vector<ntt_mint>& a, const vector<ntt_mint>& b) {
     int need = (int)a.size() + (int)b.size() - 1;
     int len = glim(need);
     auto A = ntt_dif(a, len);
@@ -81,7 +78,7 @@ vector<mint> ntt_mul(const vector<mint>& a, const vector<mint>& b) {
 }
 
 // 差卷积
-vector<mint> ntt_conv(vector<mint> a, const vector<mint>& b) {
+vector<ntt_mint> ntt_conv(vector<ntt_mint> a, const vector<ntt_mint>& b) {
     std::reverse(a.begin(), a.end());
     int len = glim(a.size() + b.size() - 1);
     auto A = ntt_dif(a, len);

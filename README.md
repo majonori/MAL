@@ -51,6 +51,9 @@ MAL/
 │   │   └── ...                # 下文略去这些省略号
 │   ├── poly/                  # 多项式全家桶
 │   │   └── ntt.hpp
+│   ├── hp/                    # 高精度整数 / 二进制浮点
+│   │   ├── bigint.hpp
+│   │   └── bigfloat.hpp
 │   └── dgf/                   # dgf 全家桶
 │       ├── convolution.hpp
 │       ├── transform.hpp      # zeta / mobius / gcd / lcm
@@ -62,6 +65,9 @@ MAL/
 ├── README.md
 └── README_EN.md
 ```
+
+高精度模块的精度档位、算法切换点与内存/时间量级见
+[`bundles/hp/README.md`](bundles/hp/README.md)。
 
 ## 规范
 
