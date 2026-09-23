@@ -80,7 +80,8 @@ MAL/
 │   └── build.cpp              # 依赖解析 + 合并 + 压行
 ├── tests/               # 验证：正确性与性能测试
 │   ├── benchmark/
-│   │   └── bench_hp.cpp
+│   │   ├── bench_hp.cpp
+│   │   └── bench_poly.cpp
 │   ├── docs/
 │   │   └── check_declarations.py  # 文档声明块可直接复制的编译检查
 │   ├── hp/
@@ -96,6 +97,9 @@ MAL/
 
 高精度模块的精度档位、算法切换点与内存/时间量级见
 [`bundles/hp/README.md`](bundles/hp/README.md)。
+
+卷积模块的蝶形结构（DIF 正变换 + 逆根 DIT 逆变换，不做位逆序重排）与实测速度见
+[`bundles/poly/README.md`](bundles/poly/README.md)。
 
 仓库不保存内嵌 MAL 实现的选手提交示例。题目侧的 `interactive_lib.cpp`
 负责提供 `mal::` 接口，选手代码只需声明并调用这些接口。

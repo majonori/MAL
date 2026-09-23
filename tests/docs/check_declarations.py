@@ -108,6 +108,26 @@ def squeeze(text):
     return re.sub(r"\s+", "", text)
 
 
+def strip_comments(text):
+    return re.sub(r"//[^\n]*", "", text)
+
+
+def mint_definition(text):
+    """Return the token sequence of `template <int MOD> struct mint { ... };`."""
+    start = text.index("template <int MOD>")
+    brace = text.index("{", start)
+    depth = 0
+    for i in range(brace, len(text)):
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                end = text.index(";", i)
+                return squeeze(strip_comments(text[start:end + 1]))
+    raise ValueError("unterminated mint definition")
+
+
 def declarations_only(text):
     """Drop preprocessor lines, using-directives and blank lines."""
     kept = []
@@ -389,6 +409,24 @@ int main() {
                             f"declaration block in {rel} printed {have!r} on line "
                             f"{i + 1} instead of {want!r}")
                         break
+
+        # 6. the mint definition contestants copy must match the shipped header
+        if not failures:
+            header_mint = mint_definition(
+                (ROOT / "include/common/modint.hpp").read_text())
+            doc = ROOT / "bundles/common/README.md"
+            doc_mint = None
+            for block in code_blocks(doc.read_text()):
+                if "struct mint" in block:
+                    doc_mint = mint_definition(block)
+                    break
+            if doc_mint is None:
+                failures.append(
+                    "bundles/common/README.md: no mint definition to copy")
+            elif doc_mint != header_mint:
+                failures.append(
+                    "bundles/common/README.md copies a different mint definition "
+                    "than include/common/modint.hpp")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

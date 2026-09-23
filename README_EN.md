@@ -77,7 +77,8 @@ MAL/
 │   └── build.cpp              # Dependency resolution + merging + Minify
 ├── tests/               # Verification: correctness and performance tests
 │   ├── benchmark/
-│   │   └── bench_hp.cpp
+│   │   ├── bench_hp.cpp
+│   │   └── bench_poly.cpp
 │   ├── docs/
 │   │   └── check_declarations.py  # Compiles the declaration blocks from the docs
 │   ├── hp/
@@ -94,6 +95,10 @@ MAL/
 Precision ranges, algorithm crossovers and memory/time estimates for the
 high-precision module are documented in
 [`bundles/hp/README.md`](bundles/hp/README.md).
+
+The convolution module's butterfly structure (DIF forward + inverse-root DIT
+inverse, no bit-reversal permutation) and its measured speed are documented in
+[`bundles/poly/README.md`](bundles/poly/README.md).
 
 The repository does not keep contestant-submission examples that embed MAL.
 The problem-side `interactive_lib.cpp` provides the `mal::` interfaces, and

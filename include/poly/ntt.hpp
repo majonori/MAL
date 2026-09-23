@@ -14,56 +14,70 @@ using std::valarray;
 constexpr int NTT_MOD = 998244353;
 using ntt_mint = mint<NTT_MOD>;
 
-// 单位根表（静态）
-static vector<ntt_mint> wt;
+// 单位根表（静态）：wt 给正变换，wti 给逆变换，都按块号索引
+static vector<ntt_mint> wt, wti;
 
 inline vector<ntt_mint>& ntt_init(int n) {
-    if (wt.empty()) wt = {1};
+    if (wt.empty()) {
+        wt = {1};
+        wti = {1};
+    }
     while ((int)wt.size() < n) {
         int m = (int)wt.size();
-        ntt_mint wn = ntt_mint(3).pow((NTT_MOD - 1) / m >> 2);
+        const int e = (NTT_MOD - 1) / m >> 2;
+        ntt_mint wn = ntt_mint(3).pow(e);
+        ntt_mint wni = ntt_mint(3).pow(NTT_MOD - 1 - e);
         wt.resize(m << 1);
-        for (int i = m; i < m << 1; i++) wt[i] = wn * wt[i ^ m];
+        wti.resize(m << 1);
+        for (int i = m; i < m << 1; i++) {
+            wt[i] = wn * wt[i ^ m];
+            wti[i] = wni * wti[i ^ m];
+        }
     }
     return wt;
 }
 
-// DIF：系数 -> 蝴蝶变换后的点值（输出位逆序）
+// DIF：系数 -> 点值，输出位逆序；同一块的旋转因子在循环外取一次
 inline valarray<ntt_mint> ntt_dif(const vector<ntt_mint>& src, int n) {
     auto &w = ntt_init(n);
     valarray<ntt_mint> a(ntt_mint(0), n);
-    std::copy(src.begin(), src.end(), &a[0]);
+    ntt_mint *p = &a[0];
+    std::copy(src.begin(), src.end(), p);
     for (int len = n, k = n >> 1; k >= 1; len >>= 1, k >>= 1) {
         for (int i = 0, t = 0; i < n; i += len, t++) {
+            const ntt_mint w_t = w[t];
+            ntt_mint *lo = p + i, *hi = lo + k;
             for (int j = 0; j < k; j++) {
-                auto x = a[i + j];
-                auto y = a[i + j + k] * w[t];
-                a[i + j] = x + y;
-                a[i + j + k] = x - y;
+                const ntt_mint x = lo[j];
+                const ntt_mint y = hi[j] * w_t;
+                lo[j] = x + y;
+                hi[j] = x - y;
             }
         }
     }
     return a;
 }
 
-// DIT：蝴蝶变换后的点值 -> 系数（输入位逆序，输出自然序）
+// DIT：点值（位逆序）-> 系数，用逆根，不做位逆序重排也不做反转
 inline vector<ntt_mint> ntt_dit(const valarray<ntt_mint>& src) {
     int n = (int)src.size();
-    auto &w = ntt_init(n);
+    ntt_init(n);
     vector<ntt_mint> a(begin(src), end(src));
+    ntt_mint *p = a.data();
     for (int k = 1, len = 2; len <= n; k <<= 1, len <<= 1) {
         for (int i = 0, t = 0; i < n; i += len, t++) {
+            const ntt_mint w_t = wti[t];
+            ntt_mint *lo = p + i, *hi = lo + k;
             for (int j = 0; j < k; j++) {
-                auto x = a[i + j];
-                auto y = a[i + j + k];
-                a[i + j] = x + y;
-                a[i + j + k] = (x - y) * w[t];
+                const ntt_mint x = lo[j];
+                const ntt_mint y = hi[j];
+                lo[j] = x + y;
+                hi[j] = (x - y) * w_t;
             }
         }
     }
     ntt_mint inv_n = NTT_MOD - (NTT_MOD - 1) / n;
     for (int i = 0; i < n; i++) a[i] *= inv_n;
-    std::reverse(a.begin() + 1, a.end());
     return a;
 }
 

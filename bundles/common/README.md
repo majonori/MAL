@@ -25,31 +25,36 @@ int glim(std::size_t x);
 template <int MOD>
 struct mint {
     int v;
-    mint(ll v_ = 0) : v(int(v_ % MOD)) {
-        if (v < 0) v += MOD;
-    }
+    mint(ll v_ = 0) : v(int(v_ % MOD)) { if (v < 0) v += MOD; }
+
+    // 运算结果已经取过模，这里走"免取模"构造：否则每次蝶形都会多一次 % MOD
     friend mint operator+(mint a, mint b) {
-        int r = a.v + b.v;
-        return r >= MOD ? r - MOD : r;
+        const int r = a.v + b.v;
+        return mint(r >= MOD ? r - MOD : r, unchecked{});
     }
     friend mint operator-(mint a, mint b) {
-        int r = a.v - b.v;
-        return r < 0 ? r + MOD : r;
+        const int r = a.v - b.v;
+        return mint(r < 0 ? r + MOD : r, unchecked{});
     }
-    friend mint operator*(mint a, mint b) { return (ll)a.v * b.v % MOD; }
+    friend mint operator*(mint a, mint b) {
+        return mint(int((ll)a.v * b.v % MOD), unchecked{});
+    }
     mint& operator+=(mint b) { return *this = *this + b; }
     mint& operator-=(mint b) { return *this = *this - b; }
     mint& operator*=(mint b) { return *this = *this * b; }
+
     mint pow(ll k) const {
         mint r = 1, a = *this;
-        for (; k; k >>= 1, a *= a) {
-            if (k & 1) r *= a;
-        }
+        for (; k; k >>= 1, a *= a) if (k & 1) r *= a;
         return r;
     }
     mint inv() const { return pow(MOD - 2); } // 要求 MOD 是质数
     bool operator==(mint b) const { return v == b.v; }
     bool operator!=(mint b) const { return v != b.v; }
+
+private:
+    struct unchecked {};
+    mint(int v_, unchecked) : v(v_) {}
 };
 } // namespace mal
 ```

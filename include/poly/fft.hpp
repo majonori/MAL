@@ -10,54 +10,70 @@ namespace mal {
 using std::vector;
 using std::valarray;
 
-static vector<cpx> w_fft;
+// 单位根表（静态）：w 给正变换，w_inv 给逆变换，都按块号索引
+static vector<cpx> w_fft, w_fft_inv;
 
 inline vector<cpx>& fft_init(int n) {
-    if (w_fft.empty()) w_fft = {1};
+    if (w_fft.empty()) {
+        w_fft = {1};
+        w_fft_inv = {1};
+    }
     while ((int)w_fft.size() < n) {
         int m = (int)w_fft.size();
         double ang = 2 * PI / (m * 4);
         cpx wn(cos(ang), sin(ang));
+        cpx wn_inv(cos(ang), -sin(ang));
         w_fft.resize(m * 2);
-        for (int i = m; i < m * 2; i++) w_fft[i] = wn * w_fft[i ^ m];
+        w_fft_inv.resize(m * 2);
+        for (int i = m; i < m * 2; i++) {
+            w_fft[i] = wn * w_fft[i ^ m];
+            w_fft_inv[i] = wn_inv * w_fft_inv[i ^ m];
+        }
     }
     return w_fft;
 }
 
+// DIF
 inline valarray<cpx> fft_dif(const vector<cpx>& src, int n) {
     auto &w = fft_init(n);
     valarray<cpx> a(cpx(0), n);
-    std::copy(src.begin(), src.end(), &a[0]);
+    cpx *p = &a[0];
+    std::copy(src.begin(), src.end(), p);
     for (int len = n, k = n >> 1; k >= 1; len >>= 1, k >>= 1) {
         for (int i = 0, t = 0; i < n; i += len, t++) {
+            const cpx w_t = w[t];
+            cpx *lo = p + i, *hi = lo + k;
             for (int j = 0; j < k; j++) {
-                auto x = a[i + j];
-                auto y = a[i + j + k] * w[t];
-                a[i + j] = x + y;
-                a[i + j + k] = x - y;
+                const cpx x = lo[j];
+                const cpx y = hi[j] * w_t;
+                lo[j] = x + y;
+                hi[j] = x - y;
             }
         }
     }
     return a;
 }
 
-// DIT
+// DIT：用共轭根，不做位逆序重排也不做反转
 inline vector<cpx> fft_dit(const valarray<cpx>& src) {
     int n = (int)src.size();
-    auto &w = fft_init(n);
+    fft_init(n);
     vector<cpx> a(begin(src), end(src));
+    cpx *p = a.data();
     for (int k = 1, len = 2; len <= n; k <<= 1, len <<= 1) {
         for (int i = 0, t = 0; i < n; i += len, t++) {
+            const cpx w_t = w_fft_inv[t];
+            cpx *lo = p + i, *hi = lo + k;
             for (int j = 0; j < k; j++) {
-                auto x = a[i + j];
-                auto y = a[i + j + k];
-                a[i + j] = x + y;
-                a[i + j + k] = (x - y) * w[t];
+                const cpx x = lo[j];
+                const cpx y = hi[j];
+                lo[j] = x + y;
+                hi[j] = (x - y) * w_t;
             }
         }
     }
-    for (int i = 0; i < n; i++) a[i] /= n;
-    std::reverse(a.begin() + 1, a.end());
+    const double inv_n = 1.0 / n;
+    for (int i = 0; i < n; i++) a[i] *= inv_n;
     return a;
 }
 
