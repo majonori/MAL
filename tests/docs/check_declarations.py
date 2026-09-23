@@ -52,7 +52,14 @@ MODULE_EXAMPLES = {
             "579",
             "56088",
             "0",
+            "28153056843",
+            "11",
+            "7b",
             "1690.5365853658536585365853658536585365853658536585365853658536585365853658536732",
+            "1.3096197686...",
+            "4.8121843553...",
+            "11.0905365064...",
+            "3.1415926535...",
         ],
     },
     "bundles/hp/README.md": {
@@ -200,24 +207,66 @@ def main():
                 else:
                     interface_blocks.append((doc, block))
 
+        interface_expect = [
+            "579", "-333", "56088", "0", "123", "-123", "1024", "1", "123",
+            "1267650600228229401496703205376", "11", "4", "7b", "7 1 1", "1",
+            "3.7500000000...", "1.2500000000...", "3.1250000000...",
+            "5.0000000000...", "-2.5000000000...", "2.5000000000...",
+            "1.6487212707...", "0.9162907318...", "1.5811388300...",
+            "15.625000000...", "3.1415926535...", "0.6931471805...",
+            "256 1 1", "1", "2.500000000",
+        ]
+        interface_program = r"""
+int main() {
+    mal::BigInt a, b, zero(0);
+    std::cin >> a >> b;
+    std::cout << mal::remote::operator+(a, b) << '\n';
+    std::cout << mal::remote::operator-(a, b) << '\n';
+    std::cout << mal::remote::operator*(a, b) << '\n';
+    std::cout << mal::remote::operator/(a, b) << '\n';
+    std::cout << mal::remote::operator%(a, b) << '\n';
+    std::cout << mal::remote::operator-(a) << '\n';
+    std::cout << mal::remote::operator<<(mal::BigInt(1), 10) << '\n';
+    std::cout << mal::remote::operator>>(mal::BigInt(1024), 10) << '\n';
+    std::cout << mal::remote::abs(mal::remote::operator-(a)) << '\n';
+    std::cout << mal::remote::pow(mal::BigInt(2), 100) << '\n';
+    std::cout << mal::remote::sqrt(a) << '\n';
+    std::cout << mal::remote::nroot(a, 3) << '\n';
+    std::cout << a.to_string(16) << '\n';
+    std::cout << a.bit_length() << ' ' << a.sign() << ' ' << zero.is_zero() << '\n';
+    std::cout << (mal::remote::operator==(a, a) && mal::remote::operator!=(a, b) &&
+                  mal::remote::operator<(a, b) && mal::remote::operator>(b, a) &&
+                  mal::remote::operator<=(a, b) && mal::remote::operator>=(b, a)) << '\n';
+
+    mal::BigFloat u, v("1.25", 256), w;
+    std::cin >> u >> w;
+    std::cout << mal::remote::operator+(u, v) << '\n';
+    std::cout << mal::remote::operator-(u, v) << '\n';
+    std::cout << mal::remote::operator*(u, v) << '\n';
+    std::cout << mal::remote::operator/(u, w) << '\n';
+    std::cout << mal::remote::operator-(u) << '\n';
+    std::cout << mal::remote::abs(mal::remote::operator-(u)) << '\n';
+    std::cout << mal::remote::exp(w) << '\n';
+    std::cout << mal::remote::log(u) << '\n';
+    std::cout << mal::remote::sqrt(u) << '\n';
+    std::cout << mal::remote::pow(u, 3) << '\n';
+    std::cout << mal::remote::pi(256) << '\n';
+    std::cout << mal::remote::ln2(256) << '\n';
+    std::cout << u.precision() << ' ' << u.sign() << ' '
+              << mal::BigFloat(0).is_zero() << '\n';
+    std::cout << (mal::remote::operator==(u, u) && mal::remote::operator!=(u, v) &&
+                  mal::remote::operator<(v, u) && mal::remote::operator>(u, v) &&
+                  mal::remote::operator<=(v, u) && mal::remote::operator>=(u, v)) << '\n';
+    std::cout << u.to_string(10) << '\n';
+    return 0;
+}
+"""
+
         if not failures:
             doc, block = interface_blocks[0]
             main_cpp = tmp / "contestant_main.cpp"
-            main_cpp.write_text(
-                "#include <bits/stdc++.h>\n\n" + block + r"""
-
-int main() {
-    std::string a, b;
-    if (!(std::cin >> a >> b)) return 1;
-    mal::BigInt x(a), y(b);
-    mal::BigFloat u(a, 256), v(b, 256);
-    std::cout << (x + y) << '\n';
-    std::cout << (x + y).to_string() << '\n';
-    std::cout << (x * y + x - y).to_string() << '\n';
-    std::cout << ((u + v) * v / u - v) << '\n';
-    return 0;
-}
-""")
+            main_cpp.write_text("#include <bits/stdc++.h>\n\n" + block
+                                + interface_program)
             exe = tmp / "contestant"
             res = compile_and_link(
                 [main_cpp, ROOT / "bundles/interactive_lib.cpp"], exe, tmp)
@@ -226,23 +275,17 @@ int main() {
                     f"interface block from {doc.relative_to(ROOT)} does not build "
                     f"as a separate translation unit:\n{res.stderr.strip()}")
             else:
-                out = run([exe], input="123456789012345678901234567890 "
-                                       "98765432109876543210\n",
+                out = run([exe], input="123 456 2.5 0.5\n",
                           capture_output=True, text=True).stdout.strip().splitlines()
-                want = "12193263113702179522620027431151044047902621551580"
-                if len(out) < 4:
-                    failures.append(
-                        f"interface block printed {out} instead of four lines")
-                elif out[0] != out[1]:
-                    failures.append(
-                        "mal::remote::operator<< and to_string() disagree: "
-                        f"{out[0]!r} vs {out[1]!r}")
-                elif out[2] != want:
-                    failures.append(
-                        f"interface block produced {out[2]!r} instead of {want}")
-                elif not out[3].startswith("79012346407."):
-                    failures.append(
-                        f"BigFloat operator<< printed {out[3]!r}")
+                for i, want in enumerate(interface_expect):
+                    have = out[i] if i < len(out) else "<missing>"
+                    ok = (have.startswith(want[:-3]) if want.endswith("...")
+                          else have.rstrip() == want.rstrip())
+                    if not ok:
+                        failures.append(
+                            f"interface block printed {have!r} on line {i + 1} "
+                            f"instead of {want!r}")
+                        break
 
         # 2b. every complete submission template in the docs must build and pass
         if not failures:
@@ -427,6 +470,21 @@ int main() {
                 failures.append(
                     "bundles/common/README.md copies a different mint definition "
                     "than include/common/modint.hpp")
+
+        # 7. every entry point of the thin interface is exercised by the test
+        if not failures:
+            names = set()
+            for line in (ROOT / "include/remote/interface.hpp").read_text().splitlines():
+                stripped = line.strip()
+                if not stripped.endswith(";") or "(" not in stripped:
+                    continue
+                found = re.search(r"([A-Za-z_]\w*|operator[^\s(]+)\s*\(", stripped)
+                if found and not found.group(1)[0].isupper():
+                    names.add(found.group(1))
+            missing = sorted(n for n in names if n not in interface_program)
+            if missing:
+                failures.append(
+                    f"interface entry points never exercised by the check: {missing}")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

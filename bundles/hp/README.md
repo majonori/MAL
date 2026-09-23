@@ -1022,10 +1022,16 @@ int main() {
 
 洛谷的 `main.cpp` 和 `interactive_lib.cpp` 是两个独立编译单元，
 `interactive_lib.cpp` 不会出现在选手源码目录。若希望选手直接使用
-`BigInt` / `BigFloat` 的 `+ - * /`，可以在题目模板中预置
-`include/remote/interface.hpp` 的声明块；对应的
-`mal::remote::operator+ - * /` 在交互库内部调用
-`mal::BigInt` / `mal::BigFloat` 实现。
+高精度功能，可以在题目模板中预置 `include/remote/interface.hpp` 的声明块。
+这份薄接口覆盖选手用得到的全部高精度功能：
+
+- `BigInt`：`+ - * / %`、比较、`-x`、`<< >>`、`abs`、`pow`、`sqrt`、`nroot`、
+  `to_string(base)`、`is_zero`、`sign`、`bit_length`、`cin >>` / `cout <<`；
+- `BigFloat`：`+ - * /`、比较、`-x`、`abs`、`exp`、`log`、`sqrt`、`pow`、
+  `pi`、`ln2`、`to_string(k)`、`is_zero`、`sign`、`precision`、`cin >>` / `cout <<`。
+
+这些 `mal::remote::` 函数在交互库内部调用 `mal::BigInt` / `mal::BigFloat` 实现，
+选手只复制声明，不复制实现。
 
 下面这段是完整的接口声明块，可以直接复制到选手代码（或题目模板）里，
 不需要包含交互库，也不需要复制 MAL 实现。块内容与
@@ -1035,37 +1041,84 @@ int main() {
 namespace mal {
 namespace remote {
 
+// 高精度整数：内部存十进制串，算法在交互库里。
 struct BigInt {
     std::string s;
     BigInt(const std::string& x = "0") : s(x) {}
     BigInt(long long x) : s(std::to_string(x)) {}
     std::string to_string() const;
+    std::string to_string(int base) const;
+    bool is_zero() const;
+    int sign() const;
+    unsigned long long bit_length() const;
 };
 
 BigInt operator+(const BigInt& a, const BigInt& b);
 BigInt operator-(const BigInt& a, const BigInt& b);
 BigInt operator*(const BigInt& a, const BigInt& b);
 BigInt operator/(const BigInt& a, const BigInt& b);
+BigInt operator%(const BigInt& a, const BigInt& b);
+BigInt operator-(const BigInt& a);
+BigInt operator<<(const BigInt& a, std::size_t bits);
+BigInt operator>>(const BigInt& a, std::size_t bits);
+bool operator==(const BigInt& a, const BigInt& b);
+bool operator!=(const BigInt& a, const BigInt& b);
+bool operator<(const BigInt& a, const BigInt& b);
+bool operator>(const BigInt& a, const BigInt& b);
+bool operator<=(const BigInt& a, const BigInt& b);
+bool operator>=(const BigInt& a, const BigInt& b);
+BigInt abs(const BigInt& a);
+BigInt pow(const BigInt& a, unsigned long long e);
+BigInt sqrt(const BigInt& a);
+BigInt nroot(const BigInt& a, unsigned long long k);
 std::ostream& operator<<(std::ostream& os, const BigInt& x);
+std::istream& operator>>(std::istream& is, BigInt& x);
 
+// 高精度小数：内部存十进制串 + 二进制有效位数。
 struct BigFloat {
     std::string s;
     int p;
     BigFloat(const std::string& x = "0", int p_ = 256) : s(x), p(p_) {}
     BigFloat(long long x, int p_ = 256) : s(std::to_string(x)), p(p_) {}
-    std::string to_string(int digits = -1) const;
+    std::string to_string() const;
+    std::string to_string(int digits) const;
+    bool is_zero() const;
+    int sign() const;
+    int precision() const;
 };
 
 BigFloat operator+(const BigFloat& a, const BigFloat& b);
 BigFloat operator-(const BigFloat& a, const BigFloat& b);
 BigFloat operator*(const BigFloat& a, const BigFloat& b);
 BigFloat operator/(const BigFloat& a, const BigFloat& b);
+BigFloat operator-(const BigFloat& a);
+bool operator==(const BigFloat& a, const BigFloat& b);
+bool operator!=(const BigFloat& a, const BigFloat& b);
+bool operator<(const BigFloat& a, const BigFloat& b);
+bool operator>(const BigFloat& a, const BigFloat& b);
+bool operator<=(const BigFloat& a, const BigFloat& b);
+bool operator>=(const BigFloat& a, const BigFloat& b);
+BigFloat abs(const BigFloat& a);
+BigFloat exp(const BigFloat& x);
+BigFloat log(const BigFloat& x);
+BigFloat sqrt(const BigFloat& x);
+BigFloat pow(const BigFloat& x, long long e);
+BigFloat pi(int p);
+BigFloat ln2(int p);
 std::ostream& operator<<(std::ostream& os, const BigFloat& x);
+std::istream& operator>>(std::istream& is, BigFloat& x);
 
 } // namespace remote
-
 using remote::BigInt;
 using remote::BigFloat;
+using remote::abs;
+using remote::exp;
+using remote::log;
+using remote::nroot;
+using remote::pi;
+using remote::pow;
+using remote::ln2;
+using remote::sqrt;
 
 } // namespace mal
 ```

@@ -82,7 +82,10 @@ inline bool join(char a,char b){
   if((a=='.'&&isdigit((unsigned char)b))||(isdigit((unsigned char)a)&&b=='.'))return 1;
   str x;x+=a;x+=b;
   static const std::set<str>z={"++","--","->","<<",">>","<=",">=","==","!=","&&","||","+=","-=","*=","/=","%=","&=","|=","^=","##","::",".*","//","/*"};
-  return z.count(x);
+  if(z.count(x))return 1;
+  // 有向图（digraph）：%: %:%: %> <: <% :>，少一个空格就会被当成 # [ ] { } 等符号
+  static const std::set<str>dg={"%:","%>","<:","<%",":>"};
+  return dg.count(x);
 }
 str pack(const str&s){
   str o;u4 n=s.size(),i=0;bool gap=0;

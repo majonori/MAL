@@ -25,37 +25,84 @@
 namespace mal {
 namespace remote {
 
+// 高精度整数：内部存十进制串，算法在交互库里。
 struct BigInt {
     std::string s;
     BigInt(const std::string& x = "0") : s(x) {}
     BigInt(long long x) : s(std::to_string(x)) {}
     std::string to_string() const;
+    std::string to_string(int base) const;
+    bool is_zero() const;
+    int sign() const;
+    unsigned long long bit_length() const;
 };
 
 BigInt operator+(const BigInt& a, const BigInt& b);
 BigInt operator-(const BigInt& a, const BigInt& b);
 BigInt operator*(const BigInt& a, const BigInt& b);
 BigInt operator/(const BigInt& a, const BigInt& b);
+BigInt operator%(const BigInt& a, const BigInt& b);
+BigInt operator-(const BigInt& a);
+BigInt operator<<(const BigInt& a, std::size_t bits);
+BigInt operator>>(const BigInt& a, std::size_t bits);
+bool operator==(const BigInt& a, const BigInt& b);
+bool operator!=(const BigInt& a, const BigInt& b);
+bool operator<(const BigInt& a, const BigInt& b);
+bool operator>(const BigInt& a, const BigInt& b);
+bool operator<=(const BigInt& a, const BigInt& b);
+bool operator>=(const BigInt& a, const BigInt& b);
+BigInt abs(const BigInt& a);
+BigInt pow(const BigInt& a, unsigned long long e);
+BigInt sqrt(const BigInt& a);
+BigInt nroot(const BigInt& a, unsigned long long k);
 std::ostream& operator<<(std::ostream& os, const BigInt& x);
+std::istream& operator>>(std::istream& is, BigInt& x);
 
+// 高精度小数：内部存十进制串 + 二进制有效位数。
 struct BigFloat {
     std::string s;
     int p;
     BigFloat(const std::string& x = "0", int p_ = 256) : s(x), p(p_) {}
     BigFloat(long long x, int p_ = 256) : s(std::to_string(x)), p(p_) {}
-    std::string to_string(int digits = -1) const;
+    std::string to_string() const;
+    std::string to_string(int digits) const;
+    bool is_zero() const;
+    int sign() const;
+    int precision() const;
 };
 
 BigFloat operator+(const BigFloat& a, const BigFloat& b);
 BigFloat operator-(const BigFloat& a, const BigFloat& b);
 BigFloat operator*(const BigFloat& a, const BigFloat& b);
 BigFloat operator/(const BigFloat& a, const BigFloat& b);
+BigFloat operator-(const BigFloat& a);
+bool operator==(const BigFloat& a, const BigFloat& b);
+bool operator!=(const BigFloat& a, const BigFloat& b);
+bool operator<(const BigFloat& a, const BigFloat& b);
+bool operator>(const BigFloat& a, const BigFloat& b);
+bool operator<=(const BigFloat& a, const BigFloat& b);
+bool operator>=(const BigFloat& a, const BigFloat& b);
+BigFloat abs(const BigFloat& a);
+BigFloat exp(const BigFloat& x);
+BigFloat log(const BigFloat& x);
+BigFloat sqrt(const BigFloat& x);
+BigFloat pow(const BigFloat& x, long long e);
+BigFloat pi(int p);
+BigFloat ln2(int p);
 std::ostream& operator<<(std::ostream& os, const BigFloat& x);
+std::istream& operator>>(std::istream& is, BigFloat& x);
 
 } // namespace remote
-
 using remote::BigInt;
 using remote::BigFloat;
+using remote::abs;
+using remote::exp;
+using remote::log;
+using remote::nroot;
+using remote::pi;
+using remote::pow;
+using remote::ln2;
+using remote::sqrt;
 
 } // namespace mal
 ```
@@ -74,9 +121,16 @@ int main() {
     std::cout << (x + y) << '\n';
     std::cout << (x * y) << '\n';
     std::cout << (x / y) << '\n';
+    std::cout << mal::pow(x, 5) << '\n';       // 整数快速幂
+    std::cout << mal::sqrt(x) << '\n';         // 整数平方根
+    std::cout << x.to_string(16) << '\n'; // 转成十六进制输出
 
     mal::BigFloat u(a, 256), v(b, 256);
     std::cout << ((u + v) * v / u - v) << '\n';
+    std::cout << mal::exp(u / v) << '\n';      // 指数
+    std::cout << mal::log(u) << '\n';          // 对数
+    std::cout << mal::sqrt(u) << '\n';         // 小数平方根
+    std::cout << mal::pi(256) << '\n';         // 圆周率
     return 0;
 }
 ```
@@ -87,22 +141,40 @@ int main() {
 579
 56088
 0
+28153056843
+11
+7b
 1690.5365853658536585365853658536585365853658536585365853658536585365853658536732
+1.3096197686011135844950457712947778112264862926651243997268282583883106640634635
+4.8121843553724174952620086099599332930239010272220510853539572438974729096242397
+11.090536506409417162051600102609932918463376742454020022877312839085001633101352
+3.1415926535897932384626433832795028841971693993751058209749445923078164062861980
 ```
 
 ## 接口速查
 
 | 名字 | 说明 |
 |---|---|
-| `mal::BigInt x(s)` | 用十进制字符串构造高精度整数 |
+| `mal::BigInt x(s, base)` | 用字符串构造（默认十进制），`base` 取 `2..36` |
 | `mal::BigInt x(n)` | 用整数构造，例如 `mal::BigInt x(100);` |
-| `+ - * /` | 四则运算，除法向零截断 |
-| `std::cout << x` | 直接输出十进制 |
-| `x.to_string()` | 得到十进制字符串 |
-| `mal::BigFloat x(s, p)` | 用十进制字符串构造，`p` 是二进制有效位（默认 256） |
-| `+ - * /` | 高精度小数四则运算 |
-| `std::cout << x` | 按精度自动选位数输出 |
+| `+ - * / %` | 四则与取余，除法向零截断 |
+| `-x` | 取负 |
+| `<< >>` | 左移、右移（按二进制位） |
+| `== != < > <= >=` | 比较大小 |
+| `abs(x)` | 绝对值 |
+| `pow(x, e)` | 整数快速幂 |
+| `sqrt(x)`、`nroot(x, k)` | 整数平方根、整数 `k` 次根 |
+| `std::cin >> x`、`std::cout << x` | 直接读入、直接输出十进制 |
+| `x.to_string()`、`x.to_string(base)` | 转十进制串、转任意进制串 |
+| `x.is_zero()`、`x.sign()`、`x.bit_length()` | 判零、符号、二进制位数 |
+| `mal::BigFloat x(s, p)` | 用字符串构造，`p` 是二进制有效位（默认 256） |
+| `+ - * /`、`-x`、比较 | 高精度小数四则与比较，精度取两边较大者 |
+| `abs(x)` | 绝对值 |
+| `exp(x)`、`log(x)`、`sqrt(x)`、`pow(x, k)` | 指数、对数、平方根、整数次幂 |
+| `pi(p)`、`ln2(p)` | 圆周率、`ln2`，`p` 位二进制精度 |
+| `std::cin >> x`、`std::cout << x` | 读入、按精度自动选位数输出 |
 | `x.to_string(k)` | 输出 `k` 位十进制有效数字 |
+| `x.is_zero()`、`x.sign()`、`x.precision()` | 判零、符号、当前精度 |
 
 ## 题目一侧怎么导出
 
