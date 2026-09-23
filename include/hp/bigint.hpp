@@ -982,6 +982,28 @@ class BigInt {
     }
 
     static std::string decimal_chunk(limb v);
+    // Powers of 10^(9*2^k) and their fixed-point reciprocals only depend on the
+    // level, so they are computed once per program instead of once per call.
+    struct decimal_tables {
+        std::vector<BigInt> powers;
+        std::vector<BigInt> recips;
+        std::vector<size_t> scales;
+    };
+
+    static const decimal_tables& decimal_tables_for(int level) {
+        static decimal_tables tables;
+        while ((int)tables.powers.size() < level) {
+            const int k = (int)tables.powers.size();
+            if (k == 0) tables.powers.push_back(BigInt(1000000000));
+            else tables.powers.push_back(tables.powers.back().sqr());
+            const size_t bits = tables.powers[k].bit_length();
+            const size_t m = 2 * bits + 64;
+            tables.recips.push_back((BigInt(1) << m) / tables.powers[k]);
+            tables.scales.push_back(m);
+        }
+        return tables;
+    }
+
     static int ceil_log2_size(size_t x) {
         int r = 0;
         size_t v = 1;
@@ -1102,24 +1124,9 @@ public:
         if (base == 10 && d_.size() >= 64) {
             size_t chunks = (bigint_detail::bit_length_mag(d_) + 28) / 29;
             const int level = ceil_log2_size(chunks);
-            std::vector<BigInt> powers;
-            powers.reserve(level);
-            powers.push_back(BigInt(1000000000));
-            for (int k = 1; k < level; ++k)
-                powers.push_back(powers.back() * powers.back());
-            std::vector<BigInt> recips(level);
-            std::vector<size_t> scales(level);
-            for (int k = 0; k < level; ++k) {
-                const size_t bits = powers[k].bit_length();
-                const size_t m = 2 * bits + 64;
-                BigInt num = BigInt(1) << m;
-                BigInt q, r;
-                BigInt::divmod(num, powers[k], q, r);
-                recips[k] = q;
-                scales[k] = m;
-            }
+            const decimal_tables& tables = decimal_tables_for(level);
             std::string out;
-            to_decimal_rec(abs(), level, powers, recips, scales, out);
+            to_decimal_rec(abs(), level, tables.powers, tables.recips, tables.scales, out);
             size_t p = out.find_first_not_of('0');
             if (p == std::string::npos) out = "0";
             else if (p) out.erase(0, p);
@@ -1333,6 +1340,21 @@ inline void BigInt::to_decimal_rec(const BigInt& x, int level,
                                    std::string& out) {
     if (level == 0) {
         out += decimal_chunk(x.is_zero() ? 0 : x.d_[0]);
+        return;
+    }
+    if (level <= 3) {
+        // Small leftovers (at most 10^72) are converted directly: splitting them
+        // further would spend a Barrett division on every tiny node.
+        std::vector<limb> chunks;
+        BigInt t = x;
+        while (!t.is_zero()) {
+            limb rem = 0;
+            t = t.div_small(1000000000u, &rem);
+            chunks.push_back(rem);
+        }
+        if (chunks.empty()) chunks.push_back(0);
+        out += decimal_chunk(chunks.back());
+        for (size_t i = chunks.size() - 1; i-- > 0;) out += decimal_chunk(chunks[i]);
         return;
     }
     BigInt q, r;

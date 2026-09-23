@@ -72,6 +72,14 @@ MODULE_EXAMPLES = {
     },
 }
 
+# Input and expected first line for every complete submission template: the
+# tutorial's minimal a+b program by default, the 7-operation problem in its own
+# directory.
+TEMPLATE_INPUT = {
+    "examples/T793310/README.md": ("1\n+\n123 456\n", ["579"]),
+}
+DEFAULT_TEMPLATE_INPUT = ("123 456\n", ["579"])
+
 # Declaration-only interfaces: a contestant pastes the README block and links the
 # problem's interactive_lib.cpp, without ever including or copying MAL.
 DECLARATION_ONLY = {
@@ -214,7 +222,7 @@ def main():
             "5.0000000000...", "-2.5000000000...", "2.5000000000...",
             "1.6487212707...", "0.9162907318...", "1.5811388300...",
             "15.625000000...", "3.1415926535...", "0.6931471805...",
-            "256 1 1", "1", "2.500000000",
+            "256 1 1", "1", "2.500000000", "log-fast-path ok",
         ]
         interface_program = r"""
 int main() {
@@ -258,6 +266,13 @@ int main() {
                   mal::remote::operator<(v, u) && mal::remote::operator>(u, v) &&
                   mal::remote::operator<=(v, u) && mal::remote::operator>=(u, v)) << '\n';
     std::cout << u.to_string(10) << '\n';
+    // log(10^999) = 999 * log(10): the long-integer fast path must agree with
+    // the plain formula on the leading digits.
+    const std::string huge = "1" + std::string(999, '0');
+    const std::string fast = mal::log(mal::BigFloat(huge)).to_string(25);
+    const std::string slow = (mal::log(mal::BigFloat("10")) *
+                              mal::BigFloat(999)).to_string(25);
+    std::cout << (fast == slow ? "log-fast-path ok" : "log-fast-path BAD") << '\n';
     return 0;
 }
 """
@@ -300,12 +315,15 @@ int main() {
                         f"submission template in {doc.relative_to(ROOT)} does not "
                         f"build:\n{res.stderr.strip()}")
                     continue
-                got = run([exe], input="123 456\n",
+                stdin, expect = TEMPLATE_INPUT.get(
+                    str(doc.relative_to(ROOT)), DEFAULT_TEMPLATE_INPUT)
+                got = run([exe], input=stdin,
                           capture_output=True, text=True).stdout.split()
-                if got[:1] != ["579"]:
+                if got[:len(expect)] != expect:
                     failures.append(
                         f"submission template in {doc.relative_to(ROOT)} printed "
-                        f"{got[:1] or 'nothing'} for '123 456' instead of 579")
+                        f"{got[:len(expect)] or 'nothing'} for input "
+                        f"{stdin!r} instead of {expect}")
 
         # 3. namespace-scope declarations documented for the hp module
         hp_readme = ROOT / "bundles/hp/README.md"
@@ -485,6 +503,51 @@ int main() {
             if missing:
                 failures.append(
                     f"interface entry points never exercised by the check: {missing}")
+
+        # 8. the T793310 example problem: reference, data files and statement samples
+        if not failures:
+            here = ROOT / "examples/T793310"
+            reference = tmp / "t793310_reference"
+            res = compile_and_link(
+                [here / "interactive_lib.cpp", here / "main.cpp"], reference, tmp)
+            if res.returncode:
+                failures.append(
+                    f"examples/T793310 reference solution does not build:\n"
+                    f"{res.stderr.strip()}")
+            else:
+                for index in range(1, 11):
+                    data_in = (here / f"{index}.in").read_text()
+                    want = (here / f"{index}.ans").read_text().strip()
+                    got = run([reference], input=data_in,
+                              capture_output=True, text=True)
+                    if got.stdout.strip() != want:
+                        failures.append(
+                            f"T793310 case {index}: reference prints "
+                            f"{got.stdout.strip()!r}, {index}.ans has {want!r}")
+                statement = (here / "statement.md").read_text()
+                samples = re.findall(
+                    r"输入\n\n```text\n(.*?)```\n\n输出\n\n```text\n(.*?)```",
+                    statement, re.S)
+                if not samples:
+                    failures.append("statement.md: no samples found")
+                for number, (sample_in, sample_out) in enumerate(samples, 1):
+                    got = run([reference], input=sample_in,
+                              capture_output=True, text=True)
+                    if got.stdout.strip() != sample_out.strip():
+                        failures.append(
+                            f"statement sample {number}: reference prints "
+                            f"{got.stdout.strip()!r}, statement says "
+                            f"{sample_out.strip()!r}")
+
+                # the README template must stay identical to main.cpp
+                readme = (here / "README.md").read_text()
+                templates = [b for b in code_blocks(readme) if "int main" in b]
+                if not templates:
+                    failures.append("examples/T793310/README.md: no template")
+                elif (templates[0].strip().splitlines()
+                      != (here / "main.cpp").read_text().strip().splitlines()):
+                    failures.append(
+                        "examples/T793310/README.md template differs from main.cpp")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

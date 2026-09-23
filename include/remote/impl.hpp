@@ -15,6 +15,17 @@ std::string mal_remote_small(const ::mal::BigFloat& v, int p) {
     return v.to_string(mal_remote_digits(p));
 }
 
+// True when the stored text is already the canonical decimal form of an
+// integer ("0" or -?[1-9][0-9]*), in which case printing it needs no work.
+bool mal_remote_canonical(const std::string& s) {
+    size_t i = (!s.empty() && s[0] == '-') ? 1 : 0;
+    if (i >= s.size()) return false;
+    if (s[i] == '0') return i + 1 == s.size();
+    for (; i < s.size(); ++i)
+        if (s[i] < '0' || s[i] > '9') return false;
+    return true;
+}
+
 } // namespace
 
 namespace mal {
@@ -113,6 +124,7 @@ BigInt nroot(const BigInt& a, unsigned long long k) {
 }
 
 std::ostream& operator<<(std::ostream& os, const BigInt& x) {
+    if (mal_remote_canonical(x.s)) return os << x.s;
     return os << x.to_string();
 }
 
@@ -211,6 +223,27 @@ BigFloat exp(const BigFloat& x) {
 
 BigFloat log(const BigFloat& x) {
     const int p = x.p > 0 ? x.p : 256;
+    // A long integer only needs its leading digits and its scale:
+    // log(d * 10^e) = log(d) + e * log(10). Parsing a million-digit integer and
+    // running AGM on it would cost orders of magnitude more than this.
+    const std::string& text = x.s;
+    size_t start = (!text.empty() && text[0] == '-') ? 1 : 0;
+    bool plain_integer = start < text.size();
+    for (size_t i = start; plain_integer && i < text.size(); ++i)
+        if (text[i] < '0' || text[i] > '9') plain_integer = false;
+    if (plain_integer && text.size() - start > 64) {
+        size_t first = start;
+        while (first < text.size() && text[first] == '0') ++first;
+        const size_t digits = text.size() - first;
+        if (digits > 64) {
+            const size_t keep = 60;
+            const long long exponent = (long long)(digits - keep);
+            const ::mal::BigFloat lead(text.substr(first, keep), p + 64);
+            const ::mal::BigFloat ln10 = ::mal::BigFloat::log(::mal::BigFloat(10, p + 64));
+            ::mal::BigFloat value = ::mal::BigFloat::log(lead) + ln10 * ::mal::BigFloat(exponent, p + 64);
+            return BigFloat(mal_remote_small(value, p), x.p);
+        }
+    }
     return BigFloat(mal_remote_small(::mal::BigFloat::log(::mal::BigFloat(x.s, p)), p), x.p);
 }
 

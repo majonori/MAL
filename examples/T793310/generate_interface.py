@@ -1,110 +1,74 @@
-from pathlib import Path
+#!/usr/bin/env python3
+"""Regenerate interactive_lib.cpp and main.cpp for T793310.
+
+The contestant block is taken from bundles/remote/README.md (itself kept in
+sync with include/remote/interface.hpp), so the reference program always
+contains exactly the declarations a contestant copies.
+
+Usage: python3 examples/T793310/generate_interface.py
+"""
+
+import pathlib
+import re
 import shutil
 
-HERE = Path(__file__).resolve().parent
+HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 
-# The interactive library is now the normal MAL bundle.  The remote module
-# inside it exports the small value interface and all four operators.
+# The interactive library is the normal MAL bundle: include/remote/ has the
+# thin value interface, and every operator/function it declares is exported as
+# a non-inline symbol.
 shutil.copyfile(ROOT / "bundles" / "interactive_lib.cpp", HERE / "interactive_lib.cpp")
 
-main_source = r'''#include <bits/stdc++.h>
+readme = (ROOT / "bundles" / "remote" / "README.md").read_text()
+blocks = re.findall(r"```cpp\n(.*?)```", readme, re.S)
+interface = [b for b in blocks if "struct BigInt" in b and "int main" not in b][0].strip()
 
-namespace mal {
-namespace remote {
-
-// 高精度整数：内部存十进制串，算法在交互库里。
-struct BigInt {
-    std::string s;
-    BigInt(const std::string& x = "0") : s(x) {}
-    BigInt(long long x) : s(std::to_string(x)) {}
-    std::string to_string() const;
-    std::string to_string(int base) const;
-    bool is_zero() const;
-    int sign() const;
-    unsigned long long bit_length() const;
-};
-
-BigInt operator+(const BigInt& a, const BigInt& b);
-BigInt operator-(const BigInt& a, const BigInt& b);
-BigInt operator*(const BigInt& a, const BigInt& b);
-BigInt operator/(const BigInt& a, const BigInt& b);
-BigInt operator%(const BigInt& a, const BigInt& b);
-BigInt operator-(const BigInt& a);
-BigInt operator<<(const BigInt& a, std::size_t bits);
-BigInt operator>>(const BigInt& a, std::size_t bits);
-bool operator==(const BigInt& a, const BigInt& b);
-bool operator!=(const BigInt& a, const BigInt& b);
-bool operator<(const BigInt& a, const BigInt& b);
-bool operator>(const BigInt& a, const BigInt& b);
-bool operator<=(const BigInt& a, const BigInt& b);
-bool operator>=(const BigInt& a, const BigInt& b);
-BigInt abs(const BigInt& a);
-BigInt pow(const BigInt& a, unsigned long long e);
-BigInt sqrt(const BigInt& a);
-BigInt nroot(const BigInt& a, unsigned long long k);
-std::ostream& operator<<(std::ostream& os, const BigInt& x);
-std::istream& operator>>(std::istream& is, BigInt& x);
-
-// 高精度小数：内部存十进制串 + 二进制有效位数。
-struct BigFloat {
-    std::string s;
-    int p;
-    BigFloat(const std::string& x = "0", int p_ = 256) : s(x), p(p_) {}
-    BigFloat(long long x, int p_ = 256) : s(std::to_string(x)), p(p_) {}
-    std::string to_string() const;
-    std::string to_string(int digits) const;
-    bool is_zero() const;
-    int sign() const;
-    int precision() const;
-};
-
-BigFloat operator+(const BigFloat& a, const BigFloat& b);
-BigFloat operator-(const BigFloat& a, const BigFloat& b);
-BigFloat operator*(const BigFloat& a, const BigFloat& b);
-BigFloat operator/(const BigFloat& a, const BigFloat& b);
-BigFloat operator-(const BigFloat& a);
-bool operator==(const BigFloat& a, const BigFloat& b);
-bool operator!=(const BigFloat& a, const BigFloat& b);
-bool operator<(const BigFloat& a, const BigFloat& b);
-bool operator>(const BigFloat& a, const BigFloat& b);
-bool operator<=(const BigFloat& a, const BigFloat& b);
-bool operator>=(const BigFloat& a, const BigFloat& b);
-BigFloat abs(const BigFloat& a);
-BigFloat exp(const BigFloat& x);
-BigFloat log(const BigFloat& x);
-BigFloat sqrt(const BigFloat& x);
-BigFloat pow(const BigFloat& x, long long e);
-BigFloat pi(int p);
-BigFloat ln2(int p);
-std::ostream& operator<<(std::ostream& os, const BigFloat& x);
-std::istream& operator>>(std::istream& is, BigFloat& x);
-
-} // namespace remote
-using remote::BigInt;
-using remote::BigFloat;
-using remote::abs;
-using remote::exp;
-using remote::log;
-using remote::nroot;
-using remote::pi;
-using remote::pow;
-using remote::ln2;
-using remote::sqrt;
-
-} // namespace mal
+MAIN = """
 
 int main() {
     std::ios::sync_with_stdio(false);
     std::cin.tie(nullptr);
 
-    std::string a, b;
-    std::cin >> a >> b;
+    int T;
+    std::cin >> T;
+    while (T--) {
+        std::string op;
+        std::cin >> op;
 
-    mal::BigInt x(a), y(b);
-    std::cout << (x + y) << '\n';
+        if (op == "+" || op == "-" || op == "*" || op == "/") {
+            std::string a, b;
+            std::cin >> a >> b;
+            mal::BigInt x(a), y(b);
+            if (op == "+") std::cout << (x + y) << '\\n';
+            else if (op == "-") std::cout << (x - y) << '\\n';
+            else if (op == "*") std::cout << (x * y) << '\\n';
+            else std::cout << (x / y) << '\\n';
+        } else if (op == "nroot") {
+            std::string a;
+            long long k;
+            std::cin >> a >> k;
+            std::cout << mal::nroot(mal::BigInt(a), (unsigned long long)k) << '\\n';
+        } else {
+            std::string x;
+            std::cin >> x;
+            mal::BigFloat v(x);        // 默认 256 位二进制精度
+            if (op == "exp") std::cout << mal::exp(v).to_string(30) << '\\n';
+            else std::cout << mal::log(v).to_string(30) << '\\n';
+        }
+    }
     return 0;
 }
-'''
+"""
 
+main_source = "#include <bits/stdc++.h>\n\n" + interface + "\n" + MAIN
 (HERE / "main.cpp").write_text(main_source, encoding="utf-8")
+
+# Keep the "完整提交模板" block of the README identical to main.cpp.
+readme_path = HERE / "README.md"
+readme_text = readme_path.read_text()
+start_marker = "```cpp\n#include <bits/stdc++.h>"
+start = readme_text.index(start_marker)
+end = readme_text.index("```", start + len(start_marker))
+readme_path.write_text(
+    readme_text[:start] + "```cpp\n" + main_source.strip() + "\n" + readme_text[end:])

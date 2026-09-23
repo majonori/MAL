@@ -239,7 +239,10 @@ int main() {
 }
 ```
 
-输入 `123 456`，输出 `579`。这就是 MAL 接口测试题的完整代码。
+输入 `123 456`，输出 `579`：这是最小可用的完整代码。
+`examples/T793310`（MAL 接口测试）把它扩成了 7 种运算的完整题目，
+可以照着 [`examples/T793310/main.cpp`](examples/T793310/main.cpp) 和
+[`examples/T793310/statement.md`](examples/T793310/statement.md) 抄。
 
 ## 加减乘除
 

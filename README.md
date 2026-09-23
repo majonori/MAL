@@ -20,7 +20,9 @@ MAL 的核心目标是：
 &emsp;&emsp;**数学向比赛题目的难度，不应过分受模板代码影响。**
 
 同时，MAL 不应影响不使用本库的选手正常完成题目。  
-接口使用方式见 [MAL接口测试](https://www.luogu.com.cn/problem/T793310)。
+接口使用方式见 [MAL接口测试](https://www.luogu.com.cn/problem/T793310)：
+一道要你实现 `+ - * /`（取整）、`exp`、`log`、`nroot`（取整）7 种运算的题目，
+题面、交互库、参考程序和数据都在 [`examples/T793310`](examples/T793310)。
 
 第一次使用请看复制粘贴教程 [`TUTORIAL.md`](TUTORIAL.md)：
 不用懂 class 和 namespace，三步把接口声明粘进提交代码。

@@ -3,17 +3,28 @@
 完全不懂 C++ class / namespace 的选手请先看
 [`../../TUTORIAL.md`](../../TUTORIAL.md)：那里用三步说明白要把哪一段复制到哪。
 
-本目录提供洛谷交互题接口与数据：
+题目有 `T` 组询问，每组要求实现 7 种运算中的一种：
 
-- MAL 核心实现留在 `interactive_lib.cpp` 内部；
-- 向选手暴露一个很薄的值包装接口；
-- 选手不需要 include 交互库，也不需要复制 MAL 实现；
-- 选手可以直接使用 `mal::BigInt`、`mal::BigFloat` 的 `+ - * /`，
-  以及 `std::cout << x` 输出。
+| `op` | 含义 | 操作数 | 结果 |
+|---|---|---|---|
+| `+` | 高精度整数加法 | 两个整数 | `a + b` |
+| `-` | 高精度整数减法 | 两个整数 | `a - b` |
+| `*` | 高精度整数乘法 | 两个整数 | `a * b` |
+| `/` | 高精度整数除法 | 两个整数 | `a / b`，向零取整 |
+| `exp` | 自然指数 | 一个实数 | `e^x` |
+| `log` | 自然对数 | 一个正实数 | `ln x` |
+| `nroot` | 整数 `k` 次根 | 非负整数 `a`、正整数 `k` | `floor(a^(1/k))` |
 
-## 选手代码接口
+数据刻意开到最慢的一组要跑 0.5 秒左右，可以直观感受到 MAL 的速度。
+完整题面见 [`statement.md`](statement.md)，上传洛谷时直接照抄即可。
 
-洛谷题目模板中预置以下声明，选手只写 `main()`：
+## 选手要做的三件事
+
+1. 把下面的接口声明整段复制到 `#include <bits/stdc++.h>` 的下一行；
+2. 按题面读入 `op` 和操作数（用 `std::string` 读，别用 `int`）；
+3. 调用 `mal::BigInt` / `mal::BigFloat` 算完直接 `std::cout <<` 输出。
+
+## 接口声明（直接复制）
 
 ```cpp
 namespace mal {
@@ -100,15 +111,6 @@ using remote::sqrt;
 
 } // namespace mal
 ```
-
-注意：必须在选手源码中看到这段声明。`interactive_lib.cpp` 只参与链接，
-不会出现在选手源码目录。如果提交时只写 `main()`，就会报：
-
-```text
-错误：'mal' 未声明
-```
-
-如果题目没有配置代码模板，请把下面的接口块一起复制到提交代码中。
 
 ## 完整提交模板
 
@@ -199,90 +201,105 @@ using remote::sqrt;
 
 } // namespace mal
 
-int main() {
-    std::ios::sync_with_stdio(false);
-    std::cin.tie(nullptr);
-
-    std::string a, b;
-    std::cin >> a >> b;
-
-    mal::BigInt x(a), y(b);
-    std::cout << (x + y) << '\n';
-    return 0;
-}
-```
-
-## 选手示例
-
-```cpp
-#include <bits/stdc++.h>
-
-// 这里放入上面的接口声明块
 
 int main() {
     std::ios::sync_with_stdio(false);
     std::cin.tie(nullptr);
 
-    std::string a, b;
-    std::cin >> a >> b;
+    int T;
+    std::cin >> T;
+    while (T--) {
+        std::string op;
+        std::cin >> op;
 
-    mal::BigInt x(a), y(b);
-    std::cout << (x + y) << '\n';
+        if (op == "+" || op == "-" || op == "*" || op == "/") {
+            std::string a, b;
+            std::cin >> a >> b;
+            mal::BigInt x(a), y(b);
+            if (op == "+") std::cout << (x + y) << '\n';
+            else if (op == "-") std::cout << (x - y) << '\n';
+            else if (op == "*") std::cout << (x * y) << '\n';
+            else std::cout << (x / y) << '\n';
+        } else if (op == "nroot") {
+            std::string a;
+            long long k;
+            std::cin >> a >> k;
+            std::cout << mal::nroot(mal::BigInt(a), (unsigned long long)k) << '\n';
+        } else {
+            std::string x;
+            std::cin >> x;
+            mal::BigFloat v(x);        // 默认 256 位二进制精度
+            if (op == "exp") std::cout << mal::exp(v).to_string(30) << '\n';
+            else std::cout << mal::log(v).to_string(30) << '\n';
+        }
+    }
     return 0;
 }
 ```
 
-也可以直接使用 BigFloat：
+这份模板就是 `main.cpp`，可以直接提交。
 
-```cpp
-mal::BigFloat x("1.5", 256), y("2.5", 256);
-mal::BigFloat z = (x + y) * y / x - y;
-std::cout << z << '\n';                 // 按精度自动选择位数
-std::cout << z.to_string(20) << '\n';   // 也可以自己指定 20 位
-```
+## 文件说明
 
-## 交互库
-
-`interactive_lib.cpp` 由 `generate_interface.py` 复制 MAL 的标准发布产物：
-
-- MAL 核心实现仍在 `namespace mal` 中；
-- `include/remote/` 提供 `mal::remote` 薄包装类型；
-- `mal::remote::operator+ - * /` 是非 inline 导出符号；
-- 选手通过 `using remote::BigInt` / `using remote::BigFloat` 使用。
-
-重新生成：
-
-```bash
-python3 examples/T793310/generate_interface.py
-```
-
-检查符号：
-
-```bash
-g++ -std=c++14 -O2 -c examples/T793310/interactive_lib.cpp \
-    -o /tmp/t793310.o
-nm -C /tmp/t793310.o | grep 'mal::remote::operator'
-```
+| 文件 | 说明 |
+|---|---|
+| `statement.md` | 洛谷题面（题目背景 / 描述 / 输入输出 / 样例 / 提示） |
+| `interactive_lib.cpp` | MAL 发布产物，由 `generate_interface.py` 复制 |
+| `main.cpp` | 参考程序，由 `generate_interface.py` 生成 |
+| `1.in ... 10.ans` | 10 组数据 |
+| `data.zip` | 上传洛谷的数据包 |
+| `generate_interface.py` | 同步接口声明，重新生成 `interactive_lib.cpp` 与 `main.cpp` |
+| `generate_data.py` | 用参考程序重新生成 10 组数据与 `data.zip` |
 
 ## 数据
 
-本目录包含 10 组数据：
+参考程序（MAL）与一份 CPython 3.14 实现的对比，同一台机器、同一时间测得
+（Apple M 系列，单线程，`-O2`，参考程序取 5 次最快）：
 
-```text
-1.in  1.ans
-2.in  2.ans
-...
-10.in 10.ans
+| 编号 | `T` | 内容 | 输入大小 | MAL | CPython | 比值 |
+|---:|---:|---|---:|---:|---:|---:|
+| 1 | 7 | 7 种运算各一条，30 位小数/整数 | `0.00 MB` | `8 ms` | `17 ms` | `2.1x` |
+| 2 | 10 | 10 次 1000 位整数乘法 | `0.02 MB` | `14 ms` | `17 ms` | `1.2x` |
+| 3 | 5 | 5 次 2 万位整数乘法 | `0.20 MB` | `77 ms` | `57 ms` | `0.74x` |
+| 4 | 4 | 2 万位整数开 `k` 次根，`k = 2..5` | `0.08 MB` | `173 ms` | `63 ms` | `0.36x` |
+| 5 | 5 | `exp` / `log`，含一条 `10^6` 位整数的 `log` | `1.00 MB` | `13 ms` | `24 ms` | `1.8x` |
+| 6 | 6 | 2.5 万位整数加减 | `0.30 MB` | `85 ms` | `62 ms` | `0.73x` |
+| 7 | 3 | 3 次 5 万位整数乘法 | `0.30 MB` | `191 ms` | `138 ms` | `0.72x` |
+| 8 | 1 | 15 万位整数开三次根 | `0.15 MB` | `439 ms` | `301 ms` | `0.69x` |
+| 9 | 1 | **80 万 ÷ 79 万位（最慢点之一）** | `1.59 MB` | `435 ms` | `590 ms` | `1.4x` |
+| 10 | 1 | **100 万 ÷ 99 万位（最慢点）** | `1.99 MB` | `474 ms` | `854 ms` | `1.8x` |
+| 合计 | | | `5.6 MB` | `1910 ms` | `2123 ms` | `1.11x` |
+
+两点说明：
+
+- 第 9、10 组是 MAL 明显占优的场合：两个超大整数相除走 Newton 倒数，
+  耗时几乎只由十进制读写决定，而按位相除的实现会随位数平方增长；
+- 第 5 组体现的是「长整数取对数」的加速：只取前 60 位有效数字配合位数算
+  `log(d) + e * log(10)`，不去解析整条百万位输入（从 `174 ms` 降到 `11 ms`）；
+- 第 3、4、6、7、8 组 MAL 仍偏慢，瓶颈不在 NTT/Newton 算法本身
+  （同规模乘法核心差 10 倍量级），而在十进制转换的常数：`to_string` 目前
+  约比 libmpdec 支撑的 CPython 慢一倍。这一版已经做了三件事：
+  输出时不再重复转换（`operator<<` 复用已规范化的十进制串，输出多的数据快约 2 倍）、
+  递归到底部直接短除而不再逐节点做 Barrett 除法、
+  `10^{9·2^k}` 幂表和定点倒数表改成每程序只算一次（多组询问时省掉重复预计算）。
+  继续压 `to_string` 的递归常数是下一步目标。
+
+洛谷评测机速度与本机不同，上传后按评测结果确认一下：如果最慢点跑出
+300-600 ms 之外（本机空闲时第 10 组约 `470 ms`），改 `generate_data.py` 里 `DATA` 的位数再跑一次即可
+（这几组大数据都是 NTT/Newton，耗时大致与位数成正比）。
+
+`data.zip` 的根目录只包含 `interactive_lib.cpp` 和 10 组 `.in` / `.ans`。
+
+## 重新生成
+
+```bash
+python3 examples/T793310/generate_interface.py
+CXX=g++ python3 examples/T793310/generate_data.py
 ```
 
-打包后的数据文件为 `data.zip`，上传洛谷即可。压缩包根目录只包含：
-
-```text
-interactive_lib.cpp
-1.in 1.ans
-...
-10.in 10.ans
-```
+`generate_data.py` 会用 `main.cpp` + `interactive_lib.cpp` 编译出参考程序，
+再用它跑出每组答案，所以数据和参考程序永远一致；它还会打印每组数据的实测耗时，
+方便确认最慢点仍在 300-600 ms 这个区间。
 
 ## 本地测试
 
@@ -293,4 +310,11 @@ g++ -std=c++14 -O2 interactive_lib.cpp main.cpp -o main
 for i in $(seq 1 10); do
     ./main < "$i.in" | diff - "$i.ans"
 done
+```
+
+检查导出符号：
+
+```bash
+g++ -std=c++14 -O2 -c interactive_lib.cpp -o /tmp/t793310.o
+nm -C /tmp/t793310.o | grep 'mal::remote::'
 ```
