@@ -22,6 +22,9 @@ MAL 的核心目标是：
 同时，MAL 不应影响不使用本库的选手正常完成题目。  
 接口使用方式见 [MAL接口测试](https://www.luogu.com.cn/problem/T793310)。
 
+第一次使用请看复制粘贴教程 [`TUTORIAL.md`](TUTORIAL.md)：
+不用懂 class 和 namespace，三步把接口声明粘进提交代码。
+
 ## 原理
 
 根据 [luogu 的交互库说明](https://help.luogu.com.cn/manual/luogu/problem/interactive-problems)，  
@@ -82,7 +85,8 @@ MAL/
 │       └── test_bigint.cpp
 ├── .gitignore
 ├── README.md
-└── README_EN.md
+├── README_EN.md
+└── TUTORIAL.md          # 选手教程：复制粘贴使用 MAL
 ```
 
 高精度模块的精度档位、算法切换点与内存/时间量级见
@@ -110,6 +114,8 @@ mal::mint<998244353> z(1);
 
 ## 洛谷交互题：选手怎么声明
 
+不想读原理、只想复制粘贴的选手，直接看 [`TUTORIAL.md`](TUTORIAL.md)。
+
 洛谷的 `main.cpp` 和 `interactive_lib.cpp` 是两个独立编译单元，
 `interactive_lib.cpp` 不会出现在选手源码目录，因此不能使用
 `#include "interactive_lib.cpp"`。选手必须在自己代码中写下接口声明，
@@ -133,6 +139,7 @@ BigInt operator+(const BigInt& a, const BigInt& b);
 BigInt operator-(const BigInt& a, const BigInt& b);
 BigInt operator*(const BigInt& a, const BigInt& b);
 BigInt operator/(const BigInt& a, const BigInt& b);
+std::ostream& operator<<(std::ostream& os, const BigInt& x);
 
 struct BigFloat {
     std::string s;
@@ -146,6 +153,7 @@ BigFloat operator+(const BigFloat& a, const BigFloat& b);
 BigFloat operator-(const BigFloat& a, const BigFloat& b);
 BigFloat operator*(const BigFloat& a, const BigFloat& b);
 BigFloat operator/(const BigFloat& a, const BigFloat& b);
+std::ostream& operator<<(std::ostream& os, const BigFloat& x);
 
 } // namespace remote
 
@@ -166,7 +174,7 @@ int main() {
     std::string a, b;
     std::cin >> a >> b;
     mal::BigInt x(a), y(b);
-    std::cout << (x + y).to_string() << '\n';
+    std::cout << (x + y) << '\n';
 }
 ```
 

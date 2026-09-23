@@ -1,4 +1,5 @@
 #pragma once
+#include <ostream>
 #include <string>
 
 namespace mal {
@@ -15,6 +16,7 @@ BigInt operator+(const BigInt& a, const BigInt& b);
 BigInt operator-(const BigInt& a, const BigInt& b);
 BigInt operator*(const BigInt& a, const BigInt& b);
 BigInt operator/(const BigInt& a, const BigInt& b);
+std::ostream& operator<<(std::ostream& os, const BigInt& x);
 
 struct BigFloat {
     std::string s;
@@ -28,6 +30,7 @@ BigFloat operator+(const BigFloat& a, const BigFloat& b);
 BigFloat operator-(const BigFloat& a, const BigFloat& b);
 BigFloat operator*(const BigFloat& a, const BigFloat& b);
 BigFloat operator/(const BigFloat& a, const BigFloat& b);
+std::ostream& operator<<(std::ostream& os, const BigFloat& x);
 
 } // namespace remote
 } // namespace mal

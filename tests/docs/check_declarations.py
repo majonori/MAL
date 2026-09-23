@@ -36,6 +36,7 @@ STD = os.environ.get("CXXSTD", "-std=c++14")
 DOCS = [
     ROOT / "README.md",
     ROOT / "README_EN.md",
+    ROOT / "TUTORIAL.md",
     ROOT / "bundles/hp/README.md",
     ROOT / "examples/T793310/README.md",
 ]
@@ -104,18 +105,22 @@ def main():
         interface = ROOT / "include/remote/interface.hpp"
         expected_interface = squeeze(declarations_only(interface.read_text()))
         interface_blocks = []
+        full_programs = []
         for doc in DOCS:
-            found = [b for b in code_blocks(doc.read_text())
-                     if "struct BigInt" in b and "int main" not in b]
+            found = [b for b in code_blocks(doc.read_text()) if "struct BigInt" in b]
             if not found:
                 failures.append(f"{doc.relative_to(ROOT)}: no interface block found")
                 continue
             for block in found:
-                if squeeze(declarations_only(block)) != expected_interface:
+                body = squeeze(declarations_only(block))
+                if expected_interface not in body:
                     failures.append(
                         f"{doc.relative_to(ROOT)}: interface block differs from "
                         f"include/remote/interface.hpp")
-                interface_blocks.append((doc, block))
+                if "int main" in block:
+                    full_programs.append((doc, block))
+                else:
+                    interface_blocks.append((doc, block))
 
         if not failures:
             doc, block = interface_blocks[0]
@@ -128,8 +133,10 @@ int main() {
     if (!(std::cin >> a >> b)) return 1;
     mal::BigInt x(a), y(b);
     mal::BigFloat u(a, 256), v(b, 256);
+    std::cout << (x + y) << '\n';
+    std::cout << (x + y).to_string() << '\n';
     std::cout << (x * y + x - y).to_string() << '\n';
-    std::cout << ((u + v) * v / u - v).to_string(30) << '\n';
+    std::cout << ((u + v) * v / u - v) << '\n';
     return 0;
 }
 """)
@@ -145,9 +152,39 @@ int main() {
                                        "98765432109876543210\n",
                           capture_output=True, text=True).stdout.strip().splitlines()
                 want = "12193263113702179522620027431151044047902621551580"
-                if not out or out[0] != want:
+                if len(out) < 4:
                     failures.append(
-                        f"interface block produced {out[:1]} instead of {want}")
+                        f"interface block printed {out} instead of four lines")
+                elif out[0] != out[1]:
+                    failures.append(
+                        "mal::remote::operator<< and to_string() disagree: "
+                        f"{out[0]!r} vs {out[1]!r}")
+                elif out[2] != want:
+                    failures.append(
+                        f"interface block produced {out[2]!r} instead of {want}")
+                elif not out[3].startswith("79012346407."):
+                    failures.append(
+                        f"BigFloat operator<< printed {out[3]!r}")
+
+        # 2b. every complete submission template in the docs must build and pass
+        if not failures:
+            for index, (doc, block) in enumerate(full_programs):
+                program = tmp / f"template{index}.cpp"
+                program.write_text(block)
+                exe = tmp / f"template{index}"
+                res = compile_and_link(
+                    [program, ROOT / "bundles/interactive_lib.cpp"], exe, tmp)
+                if res.returncode:
+                    failures.append(
+                        f"submission template in {doc.relative_to(ROOT)} does not "
+                        f"build:\n{res.stderr.strip()}")
+                    continue
+                got = run([exe], input="123 456\n",
+                          capture_output=True, text=True).stdout.split()
+                if got[:1] != ["579"]:
+                    failures.append(
+                        f"submission template in {doc.relative_to(ROOT)} printed "
+                        f"{got[:1] or 'nothing'} for '123 456' instead of 579")
 
         # 3. namespace-scope declarations documented for the hp module
         hp_readme = ROOT / "bundles/hp/README.md"

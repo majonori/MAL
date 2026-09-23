@@ -1011,6 +1011,8 @@ int main() {
 
 ## 洛谷交互题封装
 
+选手视角的复制粘贴步骤见 [`../../TUTORIAL.md`](../../TUTORIAL.md)。
+
 洛谷的 `main.cpp` 和 `interactive_lib.cpp` 是两个独立编译单元，
 `interactive_lib.cpp` 不会出现在选手源码目录。若希望选手直接使用
 `BigInt` / `BigFloat` 的 `+ - * /`，可以在题目模板中预置
@@ -1037,6 +1039,7 @@ BigInt operator+(const BigInt& a, const BigInt& b);
 BigInt operator-(const BigInt& a, const BigInt& b);
 BigInt operator*(const BigInt& a, const BigInt& b);
 BigInt operator/(const BigInt& a, const BigInt& b);
+std::ostream& operator<<(std::ostream& os, const BigInt& x);
 
 struct BigFloat {
     std::string s;
@@ -1050,6 +1053,7 @@ BigFloat operator+(const BigFloat& a, const BigFloat& b);
 BigFloat operator-(const BigFloat& a, const BigFloat& b);
 BigFloat operator*(const BigFloat& a, const BigFloat& b);
 BigFloat operator/(const BigFloat& a, const BigFloat& b);
+std::ostream& operator<<(std::ostream& os, const BigFloat& x);
 
 } // namespace remote
 
@@ -1059,14 +1063,15 @@ using remote::BigFloat;
 } // namespace mal
 ```
 
-复制后即可直接写 `mal::BigInt` / `mal::BigFloat` 的 `+ - * /`：
+复制后即可直接写 `mal::BigInt` / `mal::BigFloat` 的 `+ - * /`，
+也可以用 `std::cout << x` 直接输出：
 
 ```cpp
 mal::BigInt x(a), y(b);
 std::cout << (x * y + x).to_string() << '\n';
 
 mal::BigFloat u("1.5", 512), v("2.5", 512);
-std::cout << ((u + v) * v / u - v).to_string(40) << '\n';
+std::cout << ((u + v) * v / u - v) << '\n';
 ```
 
 完整提交模板与数据见 `examples/T793310/README.md`。

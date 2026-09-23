@@ -24,6 +24,7 @@ BigInt operator+(const BigInt& a, const BigInt& b);
 BigInt operator-(const BigInt& a, const BigInt& b);
 BigInt operator*(const BigInt& a, const BigInt& b);
 BigInt operator/(const BigInt& a, const BigInt& b);
+std::ostream& operator<<(std::ostream& os, const BigInt& x);
 
 struct BigFloat {
     std::string s;
@@ -37,6 +38,7 @@ BigFloat operator+(const BigFloat& a, const BigFloat& b);
 BigFloat operator-(const BigFloat& a, const BigFloat& b);
 BigFloat operator*(const BigFloat& a, const BigFloat& b);
 BigFloat operator/(const BigFloat& a, const BigFloat& b);
+std::ostream& operator<<(std::ostream& os, const BigFloat& x);
 
 } // namespace remote
 
@@ -53,7 +55,7 @@ int main() {
     std::cin >> a >> b;
 
     mal::BigInt x(a), y(b);
-    std::cout << (x + y).to_string() << '\n';
+    std::cout << (x + y) << '\n';
     return 0;
 }
 '''

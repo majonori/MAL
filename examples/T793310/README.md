@@ -1,11 +1,15 @@
 # T793310 MAL 接口测试
 
+完全不懂 C++ class / namespace 的选手请先看
+[`../../TUTORIAL.md`](../../TUTORIAL.md)：那里用三步说明白要把哪一段复制到哪。
+
 本目录提供洛谷交互题接口与数据：
 
 - MAL 核心实现留在 `interactive_lib.cpp` 内部；
 - 向选手暴露一个很薄的值包装接口；
 - 选手不需要 include 交互库，也不需要复制 MAL 实现；
-- 选手可以直接使用 `mal::BigInt`、`mal::BigFloat` 的 `+ - * /`。
+- 选手可以直接使用 `mal::BigInt`、`mal::BigFloat` 的 `+ - * /`，
+  以及 `std::cout << x` 输出。
 
 ## 选手代码接口
 
@@ -26,6 +30,7 @@ BigInt operator+(const BigInt& a, const BigInt& b);
 BigInt operator-(const BigInt& a, const BigInt& b);
 BigInt operator*(const BigInt& a, const BigInt& b);
 BigInt operator/(const BigInt& a, const BigInt& b);
+std::ostream& operator<<(std::ostream& os, const BigInt& x);
 
 struct BigFloat {
     std::string s;
@@ -39,6 +44,7 @@ BigFloat operator+(const BigFloat& a, const BigFloat& b);
 BigFloat operator-(const BigFloat& a, const BigFloat& b);
 BigFloat operator*(const BigFloat& a, const BigFloat& b);
 BigFloat operator/(const BigFloat& a, const BigFloat& b);
+std::ostream& operator<<(std::ostream& os, const BigFloat& x);
 
 } // namespace remote
 
@@ -76,6 +82,7 @@ BigInt operator+(const BigInt& a, const BigInt& b);
 BigInt operator-(const BigInt& a, const BigInt& b);
 BigInt operator*(const BigInt& a, const BigInt& b);
 BigInt operator/(const BigInt& a, const BigInt& b);
+std::ostream& operator<<(std::ostream& os, const BigInt& x);
 
 struct BigFloat {
     std::string s;
@@ -89,6 +96,7 @@ BigFloat operator+(const BigFloat& a, const BigFloat& b);
 BigFloat operator-(const BigFloat& a, const BigFloat& b);
 BigFloat operator*(const BigFloat& a, const BigFloat& b);
 BigFloat operator/(const BigFloat& a, const BigFloat& b);
+std::ostream& operator<<(std::ostream& os, const BigFloat& x);
 
 } // namespace remote
 
@@ -105,7 +113,7 @@ int main() {
     std::cin >> a >> b;
 
     mal::BigInt x(a), y(b);
-    std::cout << (x + y).to_string() << '\n';
+    std::cout << (x + y) << '\n';
     return 0;
 }
 ```
@@ -125,7 +133,7 @@ int main() {
     std::cin >> a >> b;
 
     mal::BigInt x(a), y(b);
-    std::cout << (x + y).to_string() << '\n';
+    std::cout << (x + y) << '\n';
     return 0;
 }
 ```
@@ -135,7 +143,8 @@ int main() {
 ```cpp
 mal::BigFloat x("1.5", 256), y("2.5", 256);
 mal::BigFloat z = (x + y) * y / x - y;
-std::cout << z.to_string(20) << '\n';
+std::cout << z << '\n';                 // 按精度自动选择位数
+std::cout << z.to_string(20) << '\n';   // 也可以自己指定 20 位
 ```
 
 ## 交互库

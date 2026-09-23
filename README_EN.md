@@ -82,7 +82,8 @@ MAL/
 │       └── test_bigint.cpp
 ├── .gitignore
 ├── README.md
-└── README_EN.md
+├── README_EN.md
+└── TUTORIAL.md          # Contestant tutorial: copy-paste guide (Chinese)
 ```
 
 Precision ranges, algorithm crossovers and memory/time estimates for the
@@ -92,6 +93,9 @@ high-precision module are documented in
 The repository does not keep contestant-submission examples that embed MAL.
 The problem-side `interactive_lib.cpp` provides the `mal::` interfaces, and
 contestant code should only declare and call them.
+
+Contestants who do not want to deal with C++ classes at all can follow the
+step-by-step copy-paste tutorial in [`TUTORIAL.md`](TUTORIAL.md) (Chinese).
 
 ## Namespaces
 
@@ -138,6 +142,7 @@ BigInt operator+(const BigInt& a, const BigInt& b);
 BigInt operator-(const BigInt& a, const BigInt& b);
 BigInt operator*(const BigInt& a, const BigInt& b);
 BigInt operator/(const BigInt& a, const BigInt& b);
+std::ostream& operator<<(std::ostream& os, const BigInt& x);
 
 struct BigFloat {
     std::string s;
@@ -151,6 +156,7 @@ BigFloat operator+(const BigFloat& a, const BigFloat& b);
 BigFloat operator-(const BigFloat& a, const BigFloat& b);
 BigFloat operator*(const BigFloat& a, const BigFloat& b);
 BigFloat operator/(const BigFloat& a, const BigFloat& b);
+std::ostream& operator<<(std::ostream& os, const BigFloat& x);
 
 } // namespace remote
 
@@ -171,7 +177,7 @@ int main() {
     std::string a, b;
     std::cin >> a >> b;
     mal::BigInt x(a), y(b);
-    std::cout << (x + y).to_string() << '\n';
+    std::cout << (x + y) << '\n';
 }
 ```
 

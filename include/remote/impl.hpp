@@ -65,5 +65,13 @@ BigFloat operator/(const BigFloat& a, const BigFloat& b) {
     return BigFloat((x / y).to_string(mal_remote_digits(p)), p);
 }
 
+std::ostream& operator<<(std::ostream& os, const BigInt& x) {
+    return os << x.to_string();
+}
+
+std::ostream& operator<<(std::ostream& os, const BigFloat& x) {
+    return os << x.to_string();
+}
+
 } // namespace remote
 } // namespace mal
