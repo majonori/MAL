@@ -1300,6 +1300,26 @@ public:
     }
 };
 
+// Namespace-scope declarations of the operators defined as in-class friends
+// above. Each declaration names the same function as its friend definition, so
+// other translation units can declare and call the operators without relying on
+// argument-dependent lookup. Kept in sync with bundles/hp/README.md.
+BigInt operator+(const BigInt& a, const BigInt& b);
+BigInt operator-(const BigInt& a, const BigInt& b);
+BigInt operator*(const BigInt& a, const BigInt& b);
+BigInt operator/(const BigInt& a, const BigInt& b);
+BigInt operator%(const BigInt& a, const BigInt& b);
+BigInt operator<<(const BigInt& a, std::size_t bits);
+BigInt operator>>(const BigInt& a, std::size_t bits);
+int compare(const BigInt& a, const BigInt& b);
+bool operator==(const BigInt& a, const BigInt& b);
+bool operator!=(const BigInt& a, const BigInt& b);
+bool operator<(const BigInt& a, const BigInt& b);
+bool operator>(const BigInt& a, const BigInt& b);
+bool operator<=(const BigInt& a, const BigInt& b);
+bool operator>=(const BigInt& a, const BigInt& b);
+std::ostream& operator<<(std::ostream& os, const BigInt& x);
+
 inline std::string BigInt::decimal_chunk(limb v) {
     std::string s = std::to_string((unsigned long long)v);
     if (s.size() < 9) s.insert(s.begin(), 9 - s.size(), '0');

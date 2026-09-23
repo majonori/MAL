@@ -570,6 +570,23 @@ public:
     }
 };
 
+// Namespace-scope declarations of the operators defined as in-class friends
+// above. Each declaration names the same function as its friend definition, so
+// other translation units can declare and call the operators without relying on
+// argument-dependent lookup. Kept in sync with bundles/hp/README.md.
+BigFloat operator+(const BigFloat& a, const BigFloat& b);
+BigFloat operator-(const BigFloat& a, const BigFloat& b);
+BigFloat operator*(const BigFloat& a, const BigFloat& b);
+BigFloat operator/(const BigFloat& a, const BigFloat& b);
+int compare(const BigFloat& a, const BigFloat& b);
+bool operator==(const BigFloat& a, const BigFloat& b);
+bool operator!=(const BigFloat& a, const BigFloat& b);
+bool operator<(const BigFloat& a, const BigFloat& b);
+bool operator>(const BigFloat& a, const BigFloat& b);
+bool operator<=(const BigFloat& a, const BigFloat& b);
+bool operator>=(const BigFloat& a, const BigFloat& b);
+std::ostream& operator<<(std::ostream& os, const BigFloat& x);
+
 inline BigFloat BigFloat::reciprocal_positive(const BigFloat& x, int p) {
     if (x.sign() <= 0) throw std::domain_error("BigFloat reciprocal domain error");
     p = require_prec(p);

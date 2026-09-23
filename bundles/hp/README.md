@@ -14,11 +14,24 @@
 2. 每个参数是什么；
 3. 函数作用。
 
+文档里的声明有两种写法：
+
+- 带 `namespace mal { ... }` 包裹的块是命名空间作用域声明，可以直接复制；
+- 形如 `BigInt::foo` 的条目是类成员，只能写在类定义内部，不能单独复制。
+
+`BigInt` / `BigFloat` 的实现就在头文件里，通常做法是包含
+`bundles/hp/main.cpp`。库内运算符是类内友元定义，本文给出签名完全一致的
+命名空间作用域声明，两者指向同一个函数，复制后可以直接调用。
+
+交互题的 `main.cpp` 与 `interactive_lib.cpp` 分属两个编译单元，选手拿不到类定义，
+所以跨编译单元时不要复制类成员，改为复制文末
+[洛谷交互题封装](#洛谷交互题封装) 中的薄接口块。
+
 ## BigInt
 
 ### `BigInt()`
 
-声明：
+声明（类成员）：
 
 ```cpp
 BigInt();
@@ -30,7 +43,7 @@ BigInt();
 
 ### `BigInt(long long x)`
 
-声明：
+声明（类成员）：
 
 ```cpp
 BigInt(long long x);
@@ -44,7 +57,7 @@ BigInt(long long x);
 
 ### `BigInt(const std::string& s, int base = 10)`
 
-声明：
+声明（类成员）：
 
 ```cpp
 explicit BigInt(const std::string& s, int base = 10);
@@ -59,7 +72,7 @@ explicit BigInt(const std::string& s, int base = 10);
 
 ### `BigInt::from_limbs`
 
-声明：
+声明（类成员）：
 
 ```cpp
 static BigInt from_limbs(const std::vector<std::uint32_t>& v,
@@ -75,7 +88,7 @@ static BigInt from_limbs(const std::vector<std::uint32_t>& v,
 
 ### `BigInt::from_string`
 
-声明：
+声明（类成员）：
 
 ```cpp
 static BigInt from_string(const std::string& text, int base = 10);
@@ -90,7 +103,7 @@ static BigInt from_string(const std::string& text, int base = 10);
 
 ### `BigInt::is_zero`
 
-声明：
+声明（类成员）：
 
 ```cpp
 bool is_zero() const;
@@ -102,7 +115,7 @@ bool is_zero() const;
 
 ### `BigInt::is_negative`
 
-声明：
+声明（类成员）：
 
 ```cpp
 bool is_negative() const;
@@ -114,7 +127,7 @@ bool is_negative() const;
 
 ### `BigInt::sign`
 
-声明：
+声明（类成员）：
 
 ```cpp
 int sign() const;
@@ -126,7 +139,7 @@ int sign() const;
 
 ### `BigInt::limb_count`
 
-声明：
+声明（类成员）：
 
 ```cpp
 std::size_t limb_count() const;
@@ -138,7 +151,7 @@ std::size_t limb_count() const;
 
 ### `BigInt::limbs`
 
-声明：
+声明（类成员）：
 
 ```cpp
 const std::vector<std::uint32_t>& limbs() const;
@@ -150,7 +163,7 @@ const std::vector<std::uint32_t>& limbs() const;
 
 ### `BigInt::bit_length`
 
-声明：
+声明（类成员）：
 
 ```cpp
 std::size_t bit_length() const;
@@ -162,7 +175,7 @@ std::size_t bit_length() const;
 
 ### `BigInt::bit`
 
-声明：
+声明（类成员）：
 
 ```cpp
 bool bit(std::size_t i) const;
@@ -176,7 +189,7 @@ bool bit(std::size_t i) const;
 
 ### `BigInt::any_low_bits`
 
-声明：
+声明（类成员）：
 
 ```cpp
 bool any_low_bits(std::size_t bits) const;
@@ -190,7 +203,7 @@ bool any_low_bits(std::size_t bits) const;
 
 ### `BigInt::low64`
 
-声明：
+声明（类成员）：
 
 ```cpp
 unsigned long long low64() const;
@@ -202,7 +215,7 @@ unsigned long long low64() const;
 
 ### `BigInt::abs`
 
-声明：
+声明（类成员）：
 
 ```cpp
 BigInt abs() const;
@@ -214,7 +227,7 @@ BigInt abs() const;
 
 ### `BigInt::operator-`
 
-声明：
+声明（类成员）：
 
 ```cpp
 BigInt operator-() const;
@@ -226,7 +239,7 @@ BigInt operator-() const;
 
 ### `BigInt::operator+`
 
-声明：
+声明（类成员）：
 
 ```cpp
 BigInt operator+() const;
@@ -238,7 +251,7 @@ BigInt operator+() const;
 
 ### `BigInt::to_string`
 
-声明：
+声明（类成员）：
 
 ```cpp
 std::string to_string(int base = 10) const;
@@ -252,7 +265,7 @@ std::string to_string(int base = 10) const;
 
 ### `BigInt::div_small`
 
-声明：
+声明（类成员）：
 
 ```cpp
 BigInt div_small(std::uint32_t d, std::uint32_t* rem = nullptr) const;
@@ -267,7 +280,7 @@ BigInt div_small(std::uint32_t d, std::uint32_t* rem = nullptr) const;
 
 ### `BigInt::divmod`
 
-声明：
+声明（类成员）：
 
 ```cpp
 static void divmod(const BigInt& a, const BigInt& b,
@@ -285,7 +298,7 @@ static void divmod(const BigInt& a, const BigInt& b,
 
 ### `BigInt::sqr`
 
-声明：
+声明（类成员）：
 
 ```cpp
 BigInt sqr() const;
@@ -297,7 +310,7 @@ BigInt sqr() const;
 
 ### `BigInt::pow`
 
-声明：
+声明（类成员）：
 
 ```cpp
 BigInt pow(unsigned long long e) const;
@@ -311,7 +324,7 @@ BigInt pow(unsigned long long e) const;
 
 ### `BigInt::sqrt`
 
-声明：
+声明（类成员）：
 
 ```cpp
 BigInt sqrt() const;
@@ -323,7 +336,7 @@ BigInt sqrt() const;
 
 ### `BigInt::nroot`
 
-声明：
+声明（类成员）：
 
 ```cpp
 BigInt nroot(unsigned long long k) const;
@@ -337,14 +350,18 @@ BigInt nroot(unsigned long long k) const;
 
 ### BigInt 算术运算符
 
-声明：
+声明（命名空间作用域，可直接复制）：
 
 ```cpp
-friend BigInt operator+(const BigInt& a, const BigInt& b);
-friend BigInt operator-(const BigInt& a, const BigInt& b);
-friend BigInt operator*(const BigInt& a, const BigInt& b);
-friend BigInt operator/(const BigInt& a, const BigInt& b);
-friend BigInt operator%(const BigInt& a, const BigInt& b);
+namespace mal {
+
+BigInt operator+(const BigInt& a, const BigInt& b);
+BigInt operator-(const BigInt& a, const BigInt& b);
+BigInt operator*(const BigInt& a, const BigInt& b);
+BigInt operator/(const BigInt& a, const BigInt& b);
+BigInt operator%(const BigInt& a, const BigInt& b);
+
+} // namespace mal
 ```
 
 参数：
@@ -356,7 +373,7 @@ friend BigInt operator%(const BigInt& a, const BigInt& b);
 
 ### BigInt 复合运算符
 
-声明：
+声明（类成员）：
 
 ```cpp
 BigInt& operator+=(const BigInt& b);
@@ -374,11 +391,15 @@ BigInt& operator%=(const BigInt& b);
 
 ### BigInt 位移运算符
 
-声明：
+声明（命名空间作用域，可直接复制）：
 
 ```cpp
-friend BigInt operator<<(const BigInt& a, std::size_t bits);
-friend BigInt operator>>(const BigInt& a, std::size_t bits);
+namespace mal {
+
+BigInt operator<<(const BigInt& a, std::size_t bits);
+BigInt operator>>(const BigInt& a, std::size_t bits);
+
+} // namespace mal
 ```
 
 参数：
@@ -390,15 +411,20 @@ friend BigInt operator>>(const BigInt& a, std::size_t bits);
 
 ### BigInt 比较运算符
 
-声明：
+声明（命名空间作用域，可直接复制）：
 
 ```cpp
-friend bool operator==(const BigInt& a, const BigInt& b);
-friend bool operator!=(const BigInt& a, const BigInt& b);
-friend bool operator<(const BigInt& a, const BigInt& b);
-friend bool operator>(const BigInt& a, const BigInt& b);
-friend bool operator<=(const BigInt& a, const BigInt& b);
-friend bool operator>=(const BigInt& a, const BigInt& b);
+namespace mal {
+
+int compare(const BigInt& a, const BigInt& b);
+bool operator==(const BigInt& a, const BigInt& b);
+bool operator!=(const BigInt& a, const BigInt& b);
+bool operator<(const BigInt& a, const BigInt& b);
+bool operator>(const BigInt& a, const BigInt& b);
+bool operator<=(const BigInt& a, const BigInt& b);
+bool operator>=(const BigInt& a, const BigInt& b);
+
+} // namespace mal
 ```
 
 参数：
@@ -406,11 +432,12 @@ friend bool operator>=(const BigInt& a, const BigInt& b);
 - `a`：左操作数。
 - `b`：右操作数。
 
-作用：按整数大小进行比较。
+作用：按整数大小进行比较；`compare` 返回 `-1`、`0`、`1`，
+其余运算符返回对应的布尔值。
 
 ### BigInt 后端上限
 
-声明：
+声明（类成员）：
 
 ```cpp
 static constexpr std::size_t ntt_max_slots();
@@ -426,10 +453,14 @@ static constexpr std::size_t fft_threshold();
 
 ### BigInt 输出运算符
 
-声明：
+声明（命名空间作用域，可直接复制）：
 
 ```cpp
-friend std::ostream& operator<<(std::ostream& os, const BigInt& x);
+namespace mal {
+
+std::ostream& operator<<(std::ostream& os, const BigInt& x);
+
+} // namespace mal
 ```
 
 参数：
@@ -446,7 +477,7 @@ friend std::ostream& operator<<(std::ostream& os, const BigInt& x);
 
 ### `BigFloat()`
 
-声明：
+声明（类成员）：
 
 ```cpp
 BigFloat();
@@ -458,7 +489,7 @@ BigFloat();
 
 ### `BigFloat(long long v, int p = DEFAULT_PRECISION)`
 
-声明：
+声明（类成员）：
 
 ```cpp
 explicit BigFloat(long long v, int p = DEFAULT_PRECISION);
@@ -473,7 +504,7 @@ explicit BigFloat(long long v, int p = DEFAULT_PRECISION);
 
 ### `BigFloat(const BigInt& v, int p = DEFAULT_PRECISION)`
 
-声明：
+声明（类成员）：
 
 ```cpp
 explicit BigFloat(const BigInt& v, int p = DEFAULT_PRECISION);
@@ -488,7 +519,7 @@ explicit BigFloat(const BigInt& v, int p = DEFAULT_PRECISION);
 
 ### `BigFloat(const BigInt& mantissa, long long exp2, int p)`
 
-声明：
+声明（类成员）：
 
 ```cpp
 BigFloat(const BigInt& mantissa, long long exp2, int p);
@@ -504,7 +535,7 @@ BigFloat(const BigInt& mantissa, long long exp2, int p);
 
 ### `BigFloat::from_double`
 
-声明：
+声明（类成员）：
 
 ```cpp
 static BigFloat from_double(double v, int p = DEFAULT_PRECISION);
@@ -519,7 +550,7 @@ static BigFloat from_double(double v, int p = DEFAULT_PRECISION);
 
 ### `BigFloat(const std::string& text, int p = DEFAULT_PRECISION)`
 
-声明：
+声明（类成员）：
 
 ```cpp
 explicit BigFloat(const std::string& text, int p = DEFAULT_PRECISION);
@@ -534,7 +565,7 @@ explicit BigFloat(const std::string& text, int p = DEFAULT_PRECISION);
 
 ### `BigFloat::precision`
 
-声明：
+声明（类成员）：
 
 ```cpp
 int precision() const;
@@ -546,7 +577,7 @@ int precision() const;
 
 ### `BigFloat::exponent`
 
-声明：
+声明（类成员）：
 
 ```cpp
 long long exponent() const;
@@ -558,7 +589,7 @@ long long exponent() const;
 
 ### `BigFloat::mantissa`
 
-声明：
+声明（类成员）：
 
 ```cpp
 const BigInt& mantissa() const;
@@ -570,7 +601,7 @@ const BigInt& mantissa() const;
 
 ### `BigFloat::is_zero`
 
-声明：
+声明（类成员）：
 
 ```cpp
 bool is_zero() const;
@@ -582,7 +613,7 @@ bool is_zero() const;
 
 ### `BigFloat::sign`
 
-声明：
+声明（类成员）：
 
 ```cpp
 int sign() const;
@@ -594,7 +625,7 @@ int sign() const;
 
 ### `BigFloat::abs`
 
-声明：
+声明（类成员）：
 
 ```cpp
 BigFloat abs() const;
@@ -606,7 +637,7 @@ BigFloat abs() const;
 
 ### `BigFloat::operator-`
 
-声明：
+声明（类成员）：
 
 ```cpp
 BigFloat operator-() const;
@@ -618,7 +649,7 @@ BigFloat operator-() const;
 
 ### `BigFloat::operator+`
 
-声明：
+声明（类成员）：
 
 ```cpp
 BigFloat operator+() const;
@@ -630,7 +661,7 @@ BigFloat operator+() const;
 
 ### `BigFloat::order`
 
-声明：
+声明（类成员）：
 
 ```cpp
 long long order() const;
@@ -642,7 +673,7 @@ long long order() const;
 
 ### `BigFloat::with_precision`
 
-声明：
+声明（类成员）：
 
 ```cpp
 BigFloat with_precision(int p) const;
@@ -656,7 +687,7 @@ BigFloat with_precision(int p) const;
 
 ### `BigFloat::set_precision`
 
-声明：
+声明（类成员）：
 
 ```cpp
 void set_precision(int p);
@@ -670,7 +701,7 @@ void set_precision(int p);
 
 ### `BigFloat::ldexp`
 
-声明：
+声明（类成员）：
 
 ```cpp
 BigFloat ldexp(long long k) const;
@@ -684,7 +715,7 @@ BigFloat ldexp(long long k) const;
 
 ### `BigFloat::from_string`
 
-声明：
+声明（类成员）：
 
 ```cpp
 static BigFloat from_string(const std::string& text,
@@ -700,7 +731,7 @@ static BigFloat from_string(const std::string& text,
 
 ### `BigFloat::to_double`
 
-声明：
+声明（类成员）：
 
 ```cpp
 double to_double() const;
@@ -712,7 +743,7 @@ double to_double() const;
 
 ### `BigFloat::to_string`
 
-声明：
+声明（类成员）：
 
 ```cpp
 std::string to_string() const;
@@ -727,13 +758,17 @@ std::string to_string(int digits) const;
 
 ### BigFloat 算术运算符
 
-声明：
+声明（命名空间作用域，可直接复制）：
 
 ```cpp
-friend BigFloat operator+(const BigFloat& a, const BigFloat& b);
-friend BigFloat operator-(const BigFloat& a, const BigFloat& b);
-friend BigFloat operator*(const BigFloat& a, const BigFloat& b);
-friend BigFloat operator/(const BigFloat& a, const BigFloat& b);
+namespace mal {
+
+BigFloat operator+(const BigFloat& a, const BigFloat& b);
+BigFloat operator-(const BigFloat& a, const BigFloat& b);
+BigFloat operator*(const BigFloat& a, const BigFloat& b);
+BigFloat operator/(const BigFloat& a, const BigFloat& b);
+
+} // namespace mal
 ```
 
 参数：
@@ -745,7 +780,7 @@ friend BigFloat operator/(const BigFloat& a, const BigFloat& b);
 
 ### BigFloat 复合运算符
 
-声明：
+声明（类成员）：
 
 ```cpp
 BigFloat& operator+=(const BigFloat& b);
@@ -762,15 +797,20 @@ BigFloat& operator/=(const BigFloat& b);
 
 ### BigFloat 比较运算符
 
-声明：
+声明（命名空间作用域，可直接复制）：
 
 ```cpp
-friend bool operator==(const BigFloat& a, const BigFloat& b);
-friend bool operator!=(const BigFloat& a, const BigFloat& b);
-friend bool operator<(const BigFloat& a, const BigFloat& b);
-friend bool operator>(const BigFloat& a, const BigFloat& b);
-friend bool operator<=(const BigFloat& a, const BigFloat& b);
-friend bool operator>=(const BigFloat& a, const BigFloat& b);
+namespace mal {
+
+int compare(const BigFloat& a, const BigFloat& b);
+bool operator==(const BigFloat& a, const BigFloat& b);
+bool operator!=(const BigFloat& a, const BigFloat& b);
+bool operator<(const BigFloat& a, const BigFloat& b);
+bool operator>(const BigFloat& a, const BigFloat& b);
+bool operator<=(const BigFloat& a, const BigFloat& b);
+bool operator>=(const BigFloat& a, const BigFloat& b);
+
+} // namespace mal
 ```
 
 参数：
@@ -778,11 +818,12 @@ friend bool operator>=(const BigFloat& a, const BigFloat& b);
 - `a`：左操作数。
 - `b`：右操作数。
 
-作用：比较两个高精度浮点数。
+作用：比较两个高精度浮点数；`compare` 返回 `-1`、`0`、`1`，
+其余运算符返回对应的布尔值。
 
 ### `BigFloat::div_small`
 
-声明：
+声明（类成员）：
 
 ```cpp
 BigFloat div_small(long long d, int p) const;
@@ -797,7 +838,7 @@ BigFloat div_small(long long d, int p) const;
 
 ### `BigFloat::exp`
 
-声明：
+声明（类成员）：
 
 ```cpp
 static BigFloat exp(const BigFloat& x);
@@ -811,7 +852,7 @@ static BigFloat exp(const BigFloat& x);
 
 ### `BigFloat::log`
 
-声明：
+声明（类成员）：
 
 ```cpp
 static BigFloat log(const BigFloat& x);
@@ -825,7 +866,7 @@ static BigFloat log(const BigFloat& x);
 
 ### `BigFloat::sqrt`
 
-声明：
+声明（类成员）：
 
 ```cpp
 static BigFloat sqrt(const BigFloat& x);
@@ -839,7 +880,7 @@ static BigFloat sqrt(const BigFloat& x);
 
 ### `BigFloat::log_agm`
 
-声明：
+声明（类成员）：
 
 ```cpp
 static BigFloat log_agm(const BigFloat& x);
@@ -853,7 +894,7 @@ static BigFloat log_agm(const BigFloat& x);
 
 ### `BigFloat::exp_newton_agm`
 
-声明：
+声明（类成员）：
 
 ```cpp
 static BigFloat exp_newton_agm(const BigFloat& x);
@@ -867,7 +908,7 @@ static BigFloat exp_newton_agm(const BigFloat& x);
 
 ### `BigFloat::pi`
 
-声明：
+声明（类成员）：
 
 ```cpp
 static BigFloat pi(int p);
@@ -881,7 +922,7 @@ static BigFloat pi(int p);
 
 ### `BigFloat::ln2`
 
-声明：
+声明（类成员）：
 
 ```cpp
 static BigFloat ln2(int p);
@@ -895,7 +936,7 @@ static BigFloat ln2(int p);
 
 ### `BigFloat::pow`
 
-声明：
+声明（类成员）：
 
 ```cpp
 static BigFloat pow(const BigFloat& x, long long e);
@@ -910,10 +951,14 @@ static BigFloat pow(const BigFloat& x, long long e);
 
 ### BigFloat 输出运算符
 
-声明：
+声明（命名空间作用域，可直接复制）：
 
 ```cpp
-friend std::ostream& operator<<(std::ostream& os, const BigFloat& x);
+namespace mal {
+
+std::ostream& operator<<(std::ostream& os, const BigFloat& x);
+
+} // namespace mal
 ```
 
 参数：
@@ -925,13 +970,17 @@ friend std::ostream& operator<<(std::ostream& os, const BigFloat& x);
 
 ## 自由函数
 
-声明：
+声明（命名空间作用域，可直接复制）：
 
 ```cpp
+namespace mal {
+
 BigFloat exp(const BigFloat& x);
 BigFloat log(const BigFloat& x);
 BigFloat sqrt(const BigFloat& x);
 BigFloat pow(const BigFloat& x, long long e);
+
+} // namespace mal
 ```
 
 参数：
@@ -969,7 +1018,58 @@ int main() {
 `mal::remote::operator+ - * /` 在交互库内部调用
 `mal::BigInt` / `mal::BigFloat` 实现。
 
-完整示例见 `examples/T793310/README.md`。
+下面这段是完整的接口声明块，可以直接复制到选手代码（或题目模板）里，
+不需要包含交互库，也不需要复制 MAL 实现。块内容与
+`include/remote/interface.hpp` 一致：
+
+```cpp
+namespace mal {
+namespace remote {
+
+struct BigInt {
+    std::string s;
+    BigInt(const std::string& x = "0") : s(x) {}
+    BigInt(long long x) : s(std::to_string(x)) {}
+    std::string to_string() const;
+};
+
+BigInt operator+(const BigInt& a, const BigInt& b);
+BigInt operator-(const BigInt& a, const BigInt& b);
+BigInt operator*(const BigInt& a, const BigInt& b);
+BigInt operator/(const BigInt& a, const BigInt& b);
+
+struct BigFloat {
+    std::string s;
+    int p;
+    BigFloat(const std::string& x = "0", int p_ = 256) : s(x), p(p_) {}
+    BigFloat(long long x, int p_ = 256) : s(std::to_string(x)), p(p_) {}
+    std::string to_string(int digits = -1) const;
+};
+
+BigFloat operator+(const BigFloat& a, const BigFloat& b);
+BigFloat operator-(const BigFloat& a, const BigFloat& b);
+BigFloat operator*(const BigFloat& a, const BigFloat& b);
+BigFloat operator/(const BigFloat& a, const BigFloat& b);
+
+} // namespace remote
+
+using remote::BigInt;
+using remote::BigFloat;
+
+} // namespace mal
+```
+
+复制后即可直接写 `mal::BigInt` / `mal::BigFloat` 的 `+ - * /`：
+
+```cpp
+mal::BigInt x(a), y(b);
+std::cout << (x * y + x).to_string() << '\n';
+
+mal::BigFloat u("1.5", 512), v("2.5", 512);
+std::cout << ((u + v) * v / u - v).to_string(40) << '\n';
+```
+
+完整提交模板与数据见 `examples/T793310/README.md`。
 
 ## 乘法分层
 
@@ -1077,4 +1177,9 @@ min limbs >= 192 且 max <= 2 * min    -> Toom-3
 ```bash
 g++ -std=c++14 -O2 -I. tests/hp/test_bigint.cpp -o test_bigint
 g++ -std=c++14 -O2 -I. tests/hp/test_bigfloat.cpp -o test_bigfloat
+python3 tests/docs/check_declarations.py
 ```
+
+最后一条把本文档里的声明块抽出来真正编译、链接并运行：交互题接口块作为
+独立编译单元与 `bundles/interactive_lib.cpp` 链接，命名空间作用域声明块
+与 `bundles/hp/main.cpp` 一起编译，并检查文档中的声明都存在于发布产物中。

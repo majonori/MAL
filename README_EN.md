@@ -75,6 +75,8 @@ MAL/
 ├── tests/               # Verification: correctness and performance tests
 │   ├── benchmark/
 │   │   └── bench_hp.cpp
+│   ├── docs/
+│   │   └── check_declarations.py  # Compiles the declaration blocks from the docs
 │   └── hp/
 │       ├── test_bigfloat.cpp
 │       └── test_bigint.cpp

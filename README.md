@@ -75,6 +75,8 @@ MAL/
 ├── tests/               # 验证：正确性与性能测试
 │   ├── benchmark/
 │   │   └── bench_hp.cpp
+│   ├── docs/
+│   │   └── check_declarations.py  # 文档声明块可直接复制的编译检查
 │   └── hp/
 │       ├── test_bigfloat.cpp
 │       └── test_bigint.cpp
