@@ -92,4 +92,19 @@ inline vector<ntt_mint> ntt_conv(vector<ntt_mint> a, const vector<ntt_mint>& b) 
     return c;
 }
 
+namespace poly_detail {
+
+// Taking the address of each entry point makes the compiler emit its body here,
+// so contestant code can call these functions through plain declarations.
+__attribute__((used)) vector<ntt_mint> (*const ntt_mul_kept)(const vector<ntt_mint>&,
+                                       const vector<ntt_mint>&) = &ntt_mul;
+__attribute__((used)) vector<ntt_mint> (*const ntt_conv_kept)(vector<ntt_mint>,
+                                        const vector<ntt_mint>&) = &ntt_conv;
+__attribute__((used)) valarray<ntt_mint> (*const ntt_dif_kept)(const vector<ntt_mint>&,
+                                         int) = &ntt_dif;
+__attribute__((used)) vector<ntt_mint> (*const ntt_dit_kept)(const valarray<ntt_mint>&) = &ntt_dit;
+__attribute__((used)) vector<ntt_mint>& (*const ntt_init_kept)(int) = &ntt_init;
+
+} // namespace poly_detail
+
 } // namespace mal

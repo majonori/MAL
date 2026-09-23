@@ -45,14 +45,17 @@ MAL 的使用方式不同：库代码只提供函数，不接管选手程序，�
 MAL/
 ├── bundles/             # 发布：压行代码，与源码文件结构对应
 │   ├── common/
-│   │   └── main.cpp           # common 模块合并、压行版本
+│   │   ├── main.cpp           # common 模块合并、压行版本
+│   │   └── README.md          # common 接口声明：选手复制这一段
 │   ├── hp/
 │   │   ├── main.cpp           # 高精度模块合并、压行版本
 │   │   └── README.md          # 高精度模块使用手册 / 算法说明
 │   ├── poly/
-│   │   └── main.cpp           # poly 模块合并、压行版本
+│   │   ├── main.cpp           # poly 模块合并、压行版本
+│   │   └── README.md          # poly 接口声明：选手复制这一段
 │   ├── remote/
-│   │   └── main.cpp           # 跨编译单元薄接口发布版
+│   │   ├── main.cpp           # 跨编译单元薄接口发布版
+│   │   └── README.md          # 薄接口声明：选手复制这一段
 │   └── interactive_lib.cpp    # 洛谷交互库版本
 ├── examples/T793310/    # 洛谷交互题接口与数据
 │   ├── interactive_lib.cpp    # 跨编译单元接口交互库
@@ -80,9 +83,11 @@ MAL/
 │   │   └── bench_hp.cpp
 │   ├── docs/
 │   │   └── check_declarations.py  # 文档声明块可直接复制的编译检查
-│   └── hp/
+│   ├── hp/
 │       ├── test_bigfloat.cpp
 │       └── test_bigint.cpp
+│   └── poly/
+│       └── test_poly.cpp
 ├── .gitignore
 ├── README.md
 ├── README_EN.md
@@ -190,6 +195,21 @@ namespace mal {
 std::string bigint_add(const std::string& a, const std::string& b);
 }
 ```
+
+### 分模块的声明块
+
+题目会在题面里说明 `interactive_lib.cpp` 提供了哪些接口。每个模块都有一份
+可以直接复制的声明块，粘到选手代码最上面即可链接使用：
+
+| 模块 | 复制这一段 | 提供的内容 |
+|---|---|---|
+| hp（高精度） | [`bundles/hp/README.md`](bundles/hp/README.md#洛谷交互题封装) | `mal::BigInt`、`mal::BigFloat` 的 `+ - * /` 与 `<<` |
+| common | [`bundles/common/README.md`](bundles/common/README.md#选手复制这一段) | `mal::mint<MOD>`、`mal::glim`、`PI` 等 |
+| poly | [`bundles/poly/README.md`](bundles/poly/README.md#选手复制这一段) | `mal::ntt_mul`、`mal::fft_mul` 等卷积接口 |
+| remote | [`bundles/remote/README.md`](bundles/remote/README.md#可直接复制的接口声明) | hp 的薄包装，上面那张表里的 `mal::BigInt` 就是它 |
+
+各模块的声明块都由 `tests/docs/check_declarations.py` 逐个编译、
+与 `bundles/interactive_lib.cpp` 链接并运行验证。
 
 ## 规范
 

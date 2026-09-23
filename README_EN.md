@@ -42,14 +42,17 @@ MAL is used differently: the library code only provides functions and does not t
 MAL/
 ├── bundles/             # Release: minified code, corresponding to the source file structure
 │   ├── common/
-│   │   └── main.cpp           # Merged, minified common module
+│   │   ├── main.cpp           # Merged, minified common module
+│   │   └── README.md          # Copy-paste declaration block
 │   ├── hp/
 │   │   ├── main.cpp           # Merged, minified high-precision module
 │   │   └── README.md          # User manual / Algorithm notes
 │   ├── poly/
-│   │   └── main.cpp           # Merged, minified polynomial module
+│   │   ├── main.cpp           # Merged, minified polynomial module
+│   │   └── README.md          # Copy-paste declaration block
 │   ├── remote/
-│   │   └── main.cpp           # Cross-TU thin interface release
+│   │   ├── main.cpp           # Cross-TU thin interface release
+│   │   └── README.md          # Copy-paste declaration block
 │   └── interactive_lib.cpp    # Luogu interactive library version
 ├── examples/T793310/    # Luogu interactive problem interface and data
 │   ├── interactive_lib.cpp    # Cross-TU interface interactive library
@@ -77,9 +80,11 @@ MAL/
 │   │   └── bench_hp.cpp
 │   ├── docs/
 │   │   └── check_declarations.py  # Compiles the declaration blocks from the docs
-│   └── hp/
+│   ├── hp/
 │       ├── test_bigfloat.cpp
 │       └── test_bigint.cpp
+│   └── poly/
+│       └── test_poly.cpp
 ├── .gitignore
 ├── README.md
 ├── README_EN.md

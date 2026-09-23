@@ -204,12 +204,34 @@ g++ -std=c++14 -O2 interactive_lib.cpp main.cpp -o main
 ## 普通题（非交互题）想用完整版
 
 如果题目不是交互题，而是让你在自己的 `main.cpp` 里解决整道题，
-可以把仓库里 `bundles/hp/main.cpp` 的内容整段复制到代码最上面
-（它是压行过的，几行很长，属于正常现象）。这样不仅能加减乘除，
+可以把仓库里对应模块的压行产物整段复制到代码最上面
+（几行很长，属于正常现象）：
+
+```text
+高精度       -> bundles/hp/main.cpp
+模数类、glim -> bundles/common/main.cpp
+卷积         -> bundles/poly/main.cpp
+```
+
+例如复制 `bundles/hp/main.cpp` 之后，不仅能加减乘除，
 还能用 `pow`、`sqrt`、`nroot`、`exp`、`log` 等接口，写法见
 `bundles/hp/README.md`。
 
 交互题**不要**这样做：库已经在 `interactive_lib.cpp` 里了，复制整份实现会和题目那份重复。
+
+## 题面说还提供了别的接口怎么办
+
+有些题目除了 `mal::BigInt`，还会在题面里列出更多接口
+（例如 `mal::mint<998244353>`、`mal::ntt_mul`、`mal::fft_mul`）。
+这时按对应模块的 README 复制那一段声明块，粘在同一个位置即可：
+
+```text
+高精度       -> bundles/hp/README.md      的「洛谷交互题封装」
+模数类、glim -> bundles/common/README.md  的「选手复制这一段」
+卷积         -> bundles/poly/README.md    的「选手复制这一段」
+```
+
+同样是“只复制声明块、不改一个字母”，实现都留在题目的 `interactive_lib.cpp` 里。
 
 ## 三个不要
 

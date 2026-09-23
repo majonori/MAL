@@ -41,6 +41,64 @@ DOCS = [
     ROOT / "examples/T793310/README.md",
 ]
 
+# Per-module copy-paste examples: the README shows the code a contestant writes.
+# Each entry is (prepend, extra translation units, stdin, expected lines).
+MODULE_EXAMPLES = {
+    "bundles/remote/README.md": {
+        "prepend_from_doc": True,
+        "extra": ["bundles/interactive_lib.cpp"],
+        "stdin": "123 456\n",
+        "expect": [
+            "579",
+            "56088",
+            "0",
+            "1690.5365853658536585365853658536585365853658536585365853658536585365853658536732",
+        ],
+    },
+    "bundles/hp/README.md": {
+        "prepend": "",
+        "stdin": "",
+        "expect": [
+            "12193263113702179522496570642237463801111263526900",
+            "1.2500000000000000000000000000000000000000000000000000000000000000000000000000000",
+        ],
+    },
+}
+
+# Declaration-only interfaces: a contestant pastes the README block and links the
+# problem's interactive_lib.cpp, without ever including or copying MAL.
+DECLARATION_ONLY = {
+    "bundles/common/README.md": {
+        "program": """
+int main() {
+    mal::mint<998244353> a = 3, b = 5;
+    std::cout << (a + b).v << ' ' << (a * b).v << ' '
+              << mal::mint<998244353>(2).pow(10).v << ' ' << a.inv().v << '\\n';
+    std::cout << mal::glim(10) << ' ' << (int)(mal::PI * 1000) << '\\n';
+    return 0;
+}
+""",
+        "expect": ["8 15 1024 332748118", "16 3141"],
+    },
+    "bundles/poly/README.md": {
+        "requires": ["bundles/common/README.md"],
+        "program": """
+int main() {
+    mal::vector<mal::ntt_mint> a = {1, 2, 3}, b = {4, 5};
+    for (auto x : mal::ntt_mul(a, b)) std::cout << x.v << ' ';
+    std::cout << '\\n';
+    for (auto x : mal::ntt_conv({1, 2, 3}, {4, 5, 6, 7})) std::cout << x.v << ' ';
+    std::cout << '\\n';
+    mal::vector<mal::cpx> p = {1, 2, 3}, q = {4, 5};
+    for (auto x : mal::fft_mul(p, q)) std::cout << std::lround(x.real()) << ' ';
+    std::cout << '\\n';
+    return 0;
+}
+""",
+        "expect": ["4 13 22 15", "32 38", "4 13 22 15"],
+    },
+}
+
 
 def code_blocks(text):
     return re.findall(r"```(?:cpp|c\+\+)\n(.*?)```", text, re.S)
@@ -259,6 +317,78 @@ int main() {
                     failures.append(
                         "pasted hp declarations returned exit code "
                         f"{run_res.returncode} (see the checks inside the test)")
+
+        # 4. every module README ships an example that really runs
+        if not failures:
+            for rel, spec in MODULE_EXAMPLES.items():
+                doc = ROOT / rel
+                blocks = [b for b in code_blocks(doc.read_text()) if "int main" in b]
+                if not blocks:
+                    failures.append(f"{rel}: no copy-paste example found")
+                    continue
+                program = tmp / (doc.parent.name + "_example.cpp")
+                if spec.get("prepend_from_doc"):
+                    decl = [b for b in code_blocks(doc.read_text())
+                            if "struct BigInt" in b and "int main" not in b][0]
+                    prefix = "#include <bits/stdc++.h>\n\n" + decl + "\n"
+                else:
+                    prefix = "#include <bits/stdc++.h>\n" + spec["prepend"]
+                program.write_text(prefix + blocks[0])
+                sources = [program] + [ROOT / s for s in spec.get("extra", [])]
+                exe = tmp / (doc.parent.name + "_example")
+                res = compile_and_link(sources, exe, tmp)
+                if res.returncode:
+                    failures.append(
+                        f"copy-paste example in {rel} does not build:\n"
+                        f"{res.stderr.strip()}")
+                    continue
+                got = run([exe], input=spec["stdin"], capture_output=True,
+                          text=True).stdout.strip().splitlines()
+                for i, want in enumerate(spec["expect"]):
+                    have = got[i] if i < len(got) else "<missing>"
+                    ok = (have.startswith(want[:-3]) if want.endswith("...")
+                          else have.rstrip() == want.rstrip())
+                    if not ok:
+                        failures.append(
+                            f"copy-paste example in {rel} printed {have!r} on line "
+                            f"{i + 1} instead of {want!r}")
+                        break
+
+        # 5. declaration-only interfaces: paste the block, link the library
+        if not failures:
+            for rel, spec in DECLARATION_ONLY.items():
+                doc = ROOT / rel
+                blocks = [b for b in code_blocks(doc.read_text())
+                          if "namespace mal" in b and "int main" not in b]
+                if not blocks:
+                    failures.append(f"{rel}: no declaration block found")
+                    continue
+                # Interfaces that build on another module have to be pasted after it.
+                for dep in spec.get("requires", []):
+                    dep_doc = ROOT / dep
+                    blocks = [b for b in code_blocks(dep_doc.read_text())
+                              if "namespace mal" in b and "int main" not in b] + blocks
+                program = tmp / (doc.parent.name + "_decl.cpp")
+                program.write_text(
+                    "#include <bits/stdc++.h>\n\n" + "\n".join(blocks) + "\n"
+                    + spec["program"])
+                exe = tmp / (doc.parent.name + "_decl")
+                res = compile_and_link(
+                    [program, ROOT / "bundles/interactive_lib.cpp"], exe, tmp)
+                if res.returncode:
+                    failures.append(
+                        f"declaration block in {rel} does not build against "
+                        f"bundles/interactive_lib.cpp:\n{res.stderr.strip()}")
+                    continue
+                got = run([exe], capture_output=True,
+                          text=True).stdout.strip().splitlines()
+                for i, want in enumerate(spec["expect"]):
+                    have = got[i] if i < len(got) else "<missing>"
+                    if have.rstrip() != want.rstrip():
+                        failures.append(
+                            f"declaration block in {rel} printed {have!r} on line "
+                            f"{i + 1} instead of {want!r}")
+                        break
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

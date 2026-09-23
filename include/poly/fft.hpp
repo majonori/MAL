@@ -16,7 +16,7 @@ inline vector<cpx>& fft_init(int n) {
     if (w_fft.empty()) w_fft = {1};
     while ((int)w_fft.size() < n) {
         int m = (int)w_fft.size();
-        double ang = 2 * PI / (m * 2);
+        double ang = 2 * PI / (m * 4);
         cpx wn(cos(ang), sin(ang));
         w_fft.resize(m * 2);
         for (int i = m; i < m * 2; i++) w_fft[i] = wn * w_fft[i ^ m];
@@ -85,5 +85,17 @@ inline vector<cpx> fft_conv(vector<cpx> a, const vector<cpx>& b) {
     c.resize(b.size() - a.size() + 1);
     return c;
 }
+
+namespace poly_detail {
+
+// Same trick as in ntt.hpp: keeps every entry point emitted in this object file.
+__attribute__((used)) vector<cpx> (*const fft_mul_kept)(const vector<cpx>&,
+                                  const vector<cpx>&) = &fft_mul;
+__attribute__((used)) vector<cpx> (*const fft_conv_kept)(vector<cpx>, const vector<cpx>&) = &fft_conv;
+__attribute__((used)) valarray<cpx> (*const fft_dif_kept)(const vector<cpx>&, int) = &fft_dif;
+__attribute__((used)) vector<cpx> (*const fft_dit_kept)(const valarray<cpx>&) = &fft_dit;
+__attribute__((used)) vector<cpx>& (*const fft_init_kept)(int) = &fft_init;
+
+} // namespace poly_detail
 
 } // namespace mal
