@@ -52,7 +52,7 @@ MAL/
 │   │   └── main.cpp           # Cross-TU thin interface release
 │   └── interactive_lib.cpp    # Luogu interactive library version
 ├── examples/T793310/    # Luogu interactive problem interface and data
-│   ├── interactive_lib.cpp    # Plan B interactive library
+│   ├── interactive_lib.cpp    # Cross-TU interface interactive library
 │   ├── main.cpp               # Contestant example
 │   ├── 1.in ... 10.ans        # 10 test cases
 │   ├── generate_interface.py  # Interface generator
@@ -118,7 +118,7 @@ directory. Therefore `#include "interactive_lib.cpp"` does not work.
 Contestants must either write the interface declarations in their own source
 or have the problem template provide them.
 
-For the Plan B interface used by `examples/T793310`, copy the following block
+For the interface used by `examples/T793310`, copy the following block
 after `#include <bits/stdc++.h>`:
 
 ```cpp

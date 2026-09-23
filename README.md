@@ -52,7 +52,7 @@ MAL/
 │   │   └── main.cpp           # 跨编译单元薄接口发布版
 │   └── interactive_lib.cpp    # 洛谷交互库版本
 ├── examples/T793310/    # 洛谷交互题接口与数据
-│   ├── interactive_lib.cpp    # 方案 B 交互库
+│   ├── interactive_lib.cpp    # 跨编译单元接口交互库
 │   ├── main.cpp               # 选手示例
 │   ├── 1.in ... 10.ans        # 10 组数据
 │   ├── generate_interface.py  # 接口生成脚本
@@ -113,7 +113,7 @@ mal::mint<998244353> z(1);
 `#include "interactive_lib.cpp"`。选手必须在自己代码中写下接口声明，
 或者在题目模板中预置这些声明。
 
-以 `examples/T793310` 的方案 B 接口为例，把下面整段复制到
+以 `examples/T793310` 的接口为例，把下面整段复制到
 `#include <bits/stdc++.h>` 后面：
 
 ```cpp

@@ -1052,7 +1052,7 @@ min limbs >= 192 且 max <= 2 * min    -> Toom-3
 计算，`ln2` 由 `-log(2^-n)/n` 计算，两者都按精度缓存。
 固定切换点是 `AGM_LOG_THRESHOLD = 1<<14` 和 `AGM_EXP_THRESHOLD = 1<<16`。
 
-整数侧的除法与开根采用精度倍增的 Newton 方案：
+整数侧的除法与开根采用精度倍增的 Newton 算法：
 
 - `inv_mag` 递归计算定点倒数，`divmod_mag_recip` 用它完成大商除法；
 - `sqr_mag` 在 NTT 路径上只做一次正变换，平方时复用点值；
