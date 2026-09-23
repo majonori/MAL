@@ -48,7 +48,15 @@ MAL/
 │   │   └── README.md          # 高精度模块使用手册 / 算法说明
 │   ├── poly/
 │   │   └── main.cpp           # poly 模块合并、压行版本
+│   ├── remote/
+│   │   └── main.cpp           # 跨编译单元薄接口发布版
 │   └── interactive_lib.cpp    # 洛谷交互库版本
+├── examples/T793310/    # 洛谷交互题接口与数据
+│   ├── interactive_lib.cpp    # 方案 B 交互库
+│   ├── main.cpp               # 选手示例
+│   ├── 1.in ... 10.ans        # 10 组数据
+│   ├── generate_interface.py  # 接口生成脚本
+│   └── data.zip               # 洛谷上传数据包
 ├── include/             # 开发：模块化源码
 │   ├── common/
 │   │   ├── consts.hpp
@@ -56,6 +64,9 @@ MAL/
 │   ├── hp/                    # 高精度整数 / 二进制浮点
 │   │   ├── bigfloat.hpp
 │   │   └── bigint.hpp
+│   ├── remote/                # 跨编译单元薄接口
+│   │   ├── impl.hpp
+│   │   └── interface.hpp
 │   └── poly/                  # 多项式全家桶
 │       ├── fft.hpp
 │       └── ntt.hpp
@@ -94,6 +105,81 @@ mal::mint<998244353> z(1);
 头文件不会向全局命名空间引入 `using`、全局函数或宏。`interactive_lib.cpp`
 只提供 `mal::` 下的符号，因此即使选手的 `main.cpp` 定义了同名全局函数，
 也不会与 MAL 库发生链接期重名。
+
+## 洛谷交互题：选手怎么声明
+
+洛谷的 `main.cpp` 和 `interactive_lib.cpp` 是两个独立编译单元，
+`interactive_lib.cpp` 不会出现在选手源码目录，因此不能使用
+`#include "interactive_lib.cpp"`。选手必须在自己代码中写下接口声明，
+或者在题目模板中预置这些声明。
+
+以 `examples/T793310` 的方案 B 接口为例，把下面整段复制到
+`#include <bits/stdc++.h>` 后面：
+
+```cpp
+namespace mal {
+namespace remote {
+
+struct BigInt {
+    std::string s;
+    BigInt(const std::string& x = "0") : s(x) {}
+    BigInt(long long x) : s(std::to_string(x)) {}
+    std::string to_string() const;
+};
+
+BigInt operator+(const BigInt& a, const BigInt& b);
+BigInt operator-(const BigInt& a, const BigInt& b);
+BigInt operator*(const BigInt& a, const BigInt& b);
+BigInt operator/(const BigInt& a, const BigInt& b);
+
+struct BigFloat {
+    std::string s;
+    int p;
+    BigFloat(const std::string& x = "0", int p_ = 256) : s(x), p(p_) {}
+    BigFloat(long long x, int p_ = 256) : s(std::to_string(x)), p(p_) {}
+    std::string to_string(int digits = -1) const;
+};
+
+BigFloat operator+(const BigFloat& a, const BigFloat& b);
+BigFloat operator-(const BigFloat& a, const BigFloat& b);
+BigFloat operator*(const BigFloat& a, const BigFloat& b);
+BigFloat operator/(const BigFloat& a, const BigFloat& b);
+
+} // namespace remote
+
+using remote::BigInt;
+using remote::BigFloat;
+
+} // namespace mal
+```
+
+然后就能直接使用运算符：
+
+```cpp
+#include <bits/stdc++.h>
+
+// 上面是接口声明块
+
+int main() {
+    std::string a, b;
+    std::cin >> a >> b;
+    mal::BigInt x(a), y(b);
+    std::cout << (x + y).to_string() << '\n';
+}
+```
+
+这段声明只描述接口，不包含 MAL 实现；真正的
+`BigInt` / `BigFloat` 实现仍然在 `interactive_lib.cpp` 中。
+完整提交模板见
+[`examples/T793310/README.md`](examples/T793310/README.md)。
+
+如果题目接口是普通函数，则只需要声明函数：
+
+```cpp
+namespace mal {
+std::string bigint_add(const std::string& a, const std::string& b);
+}
+```
 
 ## 规范
 

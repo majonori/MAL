@@ -48,7 +48,15 @@ MAL/
 │   │   └── README.md          # User manual / Algorithm notes
 │   ├── poly/
 │   │   └── main.cpp           # Merged, minified polynomial module
+│   ├── remote/
+│   │   └── main.cpp           # Cross-TU thin interface release
 │   └── interactive_lib.cpp    # Luogu interactive library version
+├── examples/T793310/    # Luogu interactive problem interface and data
+│   ├── interactive_lib.cpp    # Plan B interactive library
+│   ├── main.cpp               # Contestant example
+│   ├── 1.in ... 10.ans        # 10 test cases
+│   ├── generate_interface.py  # Interface generator
+│   └── data.zip               # Luogu upload package
 ├── include/             # Development: modular source code
 │   ├── common/
 │   │   ├── consts.hpp
@@ -56,6 +64,9 @@ MAL/
 │   ├── hp/                    # Big integers / binary floating point
 │   │   ├── bigfloat.hpp
 │   │   └── bigint.hpp
+│   ├── remote/                # Cross-TU thin interface
+│   │   ├── impl.hpp
+│   │   └── interface.hpp
 │   └── poly/                  # Polynomial full toolkit
 │       ├── fft.hpp
 │       └── ntt.hpp
@@ -98,6 +109,81 @@ Headers do not inject `using` declarations, global functions or macros into
 the global namespace. `interactive_lib.cpp` exposes only `mal::` symbols, so
 a contestant's global function with the same name cannot collide with MAL at
 link time.
+
+## Luogu Interactive Problems: What Contestants Must Declare
+
+On Luogu, `main.cpp` and `interactive_lib.cpp` are separate translation
+units, and `interactive_lib.cpp` is not available in the contestant source
+directory. Therefore `#include "interactive_lib.cpp"` does not work.
+Contestants must either write the interface declarations in their own source
+or have the problem template provide them.
+
+For the Plan B interface used by `examples/T793310`, copy the following block
+after `#include <bits/stdc++.h>`:
+
+```cpp
+namespace mal {
+namespace remote {
+
+struct BigInt {
+    std::string s;
+    BigInt(const std::string& x = "0") : s(x) {}
+    BigInt(long long x) : s(std::to_string(x)) {}
+    std::string to_string() const;
+};
+
+BigInt operator+(const BigInt& a, const BigInt& b);
+BigInt operator-(const BigInt& a, const BigInt& b);
+BigInt operator*(const BigInt& a, const BigInt& b);
+BigInt operator/(const BigInt& a, const BigInt& b);
+
+struct BigFloat {
+    std::string s;
+    int p;
+    BigFloat(const std::string& x = "0", int p_ = 256) : s(x), p(p_) {}
+    BigFloat(long long x, int p_ = 256) : s(std::to_string(x)), p(p_) {}
+    std::string to_string(int digits = -1) const;
+};
+
+BigFloat operator+(const BigFloat& a, const BigFloat& b);
+BigFloat operator-(const BigFloat& a, const BigFloat& b);
+BigFloat operator*(const BigFloat& a, const BigFloat& b);
+BigFloat operator/(const BigFloat& a, const BigFloat& b);
+
+} // namespace remote
+
+using remote::BigInt;
+using remote::BigFloat;
+
+} // namespace mal
+```
+
+The operators can then be used directly:
+
+```cpp
+#include <bits/stdc++.h>
+
+// The interface declarations above go here.
+
+int main() {
+    std::string a, b;
+    std::cin >> a >> b;
+    mal::BigInt x(a), y(b);
+    std::cout << (x + y).to_string() << '\n';
+}
+```
+
+This block contains declarations only; the MAL implementation remains in
+`interactive_lib.cpp`. The complete submission template is shown in
+[`examples/T793310/README.md`](examples/T793310/README.md).
+
+For a plain function interface, only the function declaration is needed:
+
+```cpp
+namespace mal {
+std::string bigint_add(const std::string& a, const std::string& b);
+}
+```
 
 ## Guidelines
 
