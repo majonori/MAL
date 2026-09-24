@@ -416,8 +416,7 @@ inline twiddle_cache<MOD, ROOT>& get_twiddle_cache() {
 }
 
 #ifdef MAL_X86_SIMD
-// The vectorised stages are only taken when the running CPU has AVX2; every
-// other machine uses the scalar code below unchanged.
+// AVX2 stages; other targets use the scalar code below.
 inline bool avx2_ok() {
 #if defined(__GNUC__) || defined(__clang__)
     static const bool ok = __builtin_cpu_supports("avx2");
@@ -427,9 +426,8 @@ inline bool avx2_ok() {
     return ok;
 }
 
-// Eight lanes of d * w mod MOD with the same precomputed-quotient scheme as
-// mul_mod_shoup: the high half of d*w_hi gives floor(d*w/MOD) up to one, so a
-// single masked subtraction finishes the reduction.
+// Eight lanes of d * w mod MOD, same precomputed-quotient scheme as
+// mul_mod_shoup.
 template <std::uint32_t MOD>
 __attribute__((target("avx2"))) inline __m256i shoup8(__m256i d, __m256i w,
                                                       __m256i wh) {
@@ -789,8 +787,7 @@ struct cached_ntt_factor {
     size_t n = 0;      // slot count of the stored transform, 0 when unused
     size_t digits = 0; // 16-bit digit count of the operand
     std::vector<std::uint32_t> t1, t2;
-    // Shoup quotients of the stored transforms, so the pointwise product can
-    // use the same high-multiply reduction as the butterflies.
+    // Shoup quotients of the stored transforms, for the pointwise product.
     std::vector<std::uint32_t> t1_hi, t2_hi;
 };
 
@@ -1218,10 +1215,8 @@ inline bool divmod_mag_recip(const vec& u, const vec& v, vec& q, vec& r) {
     vec qq;
     const size_t narrow = n0 - m + 1;             // quotient limb bound
     if (n0 <= m + m / 2 && m > narrow + 2) {
-        // Narrow quotient: the result only depends on the top K+2 limbs of the
-        // divisor, so the Newton reciprocal is built from that slice instead of
-        // from the whole divisor.  The dropped low limbs shift the estimate by
-        // less than one unit, as the corrections below then settle.
+        // Narrow quotient: the top K+2 limbs of the divisor decide the
+        // result, so the Newton reciprocal is built from that slice only.
         const size_t k = narrow;
         const size_t s = k + 2;
         const vec vh = shift_right_mag(v, 32 * (m - s));
@@ -1236,12 +1231,10 @@ inline bool divmod_mag_recip(const vec& u, const vec& v, vec& q, vec& r) {
         m = n0 - m;
     }
     const vec inv = inv_mag(vs);
-    // Barrett with both operands of the estimate truncated.  Only the top
-    // |us|-m+1 limbs of the dividend matter (the dropped 32*(m-1) low bits
-    // carry less than one unit), and only the top qlimbs+2 limbs of the
-    // reciprocal matter (the dropped part carries less than one part in 2^32).
-    // A quotient far narrower than the divisor therefore costs a product of
-    // quotient width instead of a full one.
+    // Both operands of the estimate are truncated: the top |us|-m+1 limbs of
+    // the dividend and the top qlimbs+2 limbs of the reciprocal, each with an
+    // error below one unit.  A narrow quotient then costs a product of
+    // quotient width.
     const size_t qlimbs = us.size() - m + 1;
     const size_t keep = qlimbs + 2;
     const size_t inv_cut = inv.size() > keep ? inv.size() - keep : 0;
@@ -1281,13 +1274,10 @@ inline void divmod_by_reciprocal(const vec& u, const vec& v, const vec& rec,
                                  size_t scale_bits, vec& q, vec& r,
                                  const cached_ntt_factor* rec_factor = nullptr,
                                  const cached_ntt_factor* div_factor = nullptr) {
-    // Barrett-style division with a precomputed fixed-point reciprocal of v.
-    //
-    // Only the top limbs of u reach the quotient: with m = |v| the dropped
-    // 32*(m-1) low bits of u contribute less than one to u*rec/2^scale, so the
-    // product that estimates q can be taken with operands of the size of the
-    // divisor rather than of the dividend.  The estimate is then at most two
-    // short of floor(u/v), which the corrections below take care of.
+    // Barrett division with a precomputed fixed-point reciprocal.  Only the
+    // top m+1 limbs of u matter (the dropped low bits contribute < 1 to
+    // u*rec/2^scale), so the estimate uses operands of the divisor's size.
+    // The result is at most two short of floor(u/v); the loop below fixes it.
     const vec one(1, 1);
     const size_t m = v.size();
     const size_t cut = 32 * (m - 1);
@@ -1709,9 +1699,8 @@ public:
         size_t prec = std::min<size_t>(target, 32);
         BigInt m = *this >> (2 * (target - prec));
         BigInt x = BigInt(1) << ((m.bit_length() + 1) / 2);
-        // Each round converges at the current precision and then steps just
-        // above the root: Newton only decreases, so starting above keeps the
-        // estimate an upper bound and the next round stays well behaved.
+        // Each round converges, then steps just above the root: Newton only
+        // decreases, so the estimate stays an upper bound.
         for (;;) {
             const BigInt y = (x + m / x) >> 1;
             if (y >= x) break;
@@ -1747,8 +1736,7 @@ public:
         size_t prec = std::min<size_t>(target, 32);
         BigInt m = *this >> (k * (target - prec));
         BigInt x = BigInt(1) << ((m.bit_length() + k - 1) / k);
-        // Same scheme as sqrt: converge at the precision of the round, then
-        // step just above the root so the estimate stays an upper bound.
+        // As in sqrt: converge per round, then step just above the root.
         for (;;) {
             const BigInt y = ((kk - BigInt(1)) * x + m / x.pow(k - 1)) / kk;
             if (y >= x) break;
@@ -1808,10 +1796,8 @@ inline void BigInt::to_decimal_rec(const BigInt& x, int level,
         return;
     }
     if (level <= 5) {
-        // Small leftovers (at most 10^288) are converted by repeated short
-        // division: splitting them further would spend a Barrett division on
-        // every tiny node, and the measurements put the crossover here.  The
-        // low chunks are the significant ones; the leading ones stay zero.
+        // At most 10^288: split by repeated short division instead of a
+        // Barrett step per tiny node.  Low chunks first, leading ones stay 0.
         limb chunks[32];
         size_t used = 0;
         vec t = x.d_;
