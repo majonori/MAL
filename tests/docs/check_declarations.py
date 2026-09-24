@@ -526,7 +526,8 @@ int main() {
                             f"{got.stdout.strip()!r}, {index}.ans has {want!r}")
                 statement = (here / "statement.md").read_text()
                 samples = re.findall(
-                    r"输入\n\n```text\n(.*?)```\n\n输出\n\n```text\n(.*?)```",
+                    r"(?:###\s*输入\s*#\d+|输入)\s*\n\n```(?:text)?\n(.*?)```"
+                    r"\s*\n+(?:###\s*输出\s*#\d+|输出)\s*\n\n```(?:text)?\n(.*?)```",
                     statement, re.S)
                 if not samples:
                     failures.append("statement.md: no samples found")

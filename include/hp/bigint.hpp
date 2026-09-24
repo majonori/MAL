@@ -9,6 +9,11 @@
 #include <string>
 #include <utility>
 
+#if (defined(__x86_64__) || defined(__i386__)) && (defined(__GNUC__) || defined(__clang__))
+#define MAL_X86_SIMD 1
+#include <immintrin.h>
+#endif
+
 namespace mal {
 
 namespace bigint_detail {
@@ -345,6 +350,9 @@ template <std::uint32_t MOD, std::uint32_t ROOT>
 struct twiddle_cache {
     std::vector<std::vector<std::uint32_t>> fwd, inv;
     std::vector<std::vector<std::uint32_t>> fwd_hi;
+    // Shoup quotients of the inverse twiddles.  Only the vectorised inverse
+    // transform needs them, so they are built on demand.
+    std::vector<std::vector<std::uint32_t>> inv_hi;
     std::vector<std::uint32_t> inv2;
 
     void ensure(int levels) {
@@ -353,6 +361,7 @@ struct twiddle_cache {
         inv.resize(levels + 1);
         fwd_hi.resize(levels + 1);
         inv2.resize(levels + 1);
+        inv_hi.resize(levels + 1);
         const std::uint32_t half_mod = std::uint32_t((MOD + 1) / 2);
         inv2[0] = 1;
         for (int h = 1; h <= levels; ++h)
@@ -363,6 +372,7 @@ struct twiddle_cache {
             fwd[h].assign(half, 1);
             inv[h].assign(half, 1);
             fwd_hi[h].assign(half, 1);
+            inv_hi[h].clear();
             if (half == 1) continue;
             const std::uint32_t wf =
                 mod_pow_const<MOD, ROOT>(std::uint32_t((MOD - 1) / (half << 1)));
@@ -405,6 +415,118 @@ inline twiddle_cache<MOD, ROOT>& get_twiddle_cache() {
     return cache;
 }
 
+#ifdef MAL_X86_SIMD
+// The vectorised stages are only taken when the running CPU has AVX2; every
+// other machine uses the scalar code below unchanged.
+inline bool avx2_ok() {
+#if defined(__GNUC__) || defined(__clang__)
+    static const bool ok = __builtin_cpu_supports("avx2");
+#else
+    static const bool ok = false;
+#endif
+    return ok;
+}
+
+// Eight lanes of d * w mod MOD with the same precomputed-quotient scheme as
+// mul_mod_shoup: the high half of d*w_hi gives floor(d*w/MOD) up to one, so a
+// single masked subtraction finishes the reduction.
+template <std::uint32_t MOD>
+__attribute__((target("avx2"))) inline __m256i shoup8(__m256i d, __m256i w,
+                                                      __m256i wh) {
+    const __m256i mod = _mm256_set1_epi32((int)MOD);
+    const __m256i modm1 = _mm256_set1_epi32((int)MOD - 1);
+    const __m256i pe = _mm256_mul_epu32(d, wh);
+    const __m256i po =
+        _mm256_mul_epu32(_mm256_srli_epi64(d, 32), _mm256_srli_epi64(wh, 32));
+    const __m256i hi =
+        _mm256_blend_epi32(_mm256_srli_epi64(pe, 32),
+                           _mm256_slli_epi64(_mm256_srli_epi64(po, 32), 32), 0xAA);
+    const __m256i r =
+        _mm256_sub_epi32(_mm256_mullo_epi32(d, w), _mm256_mullo_epi32(hi, mod));
+    const __m256i ge = _mm256_cmpgt_epi32(r, modm1);
+    return _mm256_sub_epi32(r, _mm256_and_si256(ge, mod));
+}
+
+// a[i] = a[i] * m mod MOD for a constant m, eight lanes at a time.
+template <std::uint32_t MOD>
+__attribute__((target("avx2"))) inline void scale_avx2(
+    std::vector<std::uint32_t>& a, int n, std::uint32_t m) {
+    const std::uint32_t mh = std::uint32_t((dlimb(m) << LIMB_BITS) / MOD);
+    const __m256i w = _mm256_set1_epi32((int)m);
+    const __m256i wh = _mm256_set1_epi32((int)mh);
+    int i = 0;
+    for (; i + 8 <= n; i += 8)
+        _mm256_storeu_si256(
+            (__m256i*)&a[i],
+            shoup8<MOD>(_mm256_loadu_si256((const __m256i*)&a[i]), w, wh));
+    for (; i < n; ++i) a[i] = std::uint32_t(dlimb(a[i]) * m % MOD);
+}
+
+// One radix-2 DIF stage over 2^h blocks, eight lanes at a time.
+template <std::uint32_t MOD>
+__attribute__((target("avx2"))) inline void dif_stage_avx2(
+    std::vector<std::uint32_t>& a, int n, int len,
+    const std::vector<std::uint32_t>& w, const std::vector<std::uint32_t>& wh) {
+    const int half = len >> 1;
+    const __m256i mod = _mm256_set1_epi32((int)MOD);
+    const __m256i modm1 = _mm256_set1_epi32((int)MOD - 1);
+    for (int i = 0; i < n; i += len) {
+        for (int j = 0; j < half; j += 8) {
+            const __m256i u = _mm256_loadu_si256((const __m256i*)&a[i + j]);
+            const __m256i v = _mm256_loadu_si256((const __m256i*)&a[i + j + half]);
+            __m256i s = _mm256_add_epi32(u, v);
+            s = _mm256_sub_epi32(s,
+                                 _mm256_and_si256(_mm256_cmpgt_epi32(s, modm1), mod));
+            __m256i d = _mm256_sub_epi32(u, v);
+            d = _mm256_add_epi32(
+                d, _mm256_and_si256(_mm256_cmpgt_epi32(v, u), mod));
+            _mm256_storeu_si256((__m256i*)&a[i + j], s);
+            _mm256_storeu_si256(
+                (__m256i*)&a[i + j + half],
+                shoup8<MOD>(d, _mm256_loadu_si256((const __m256i*)&w[j]),
+                            _mm256_loadu_si256((const __m256i*)&wh[j])));
+        }
+    }
+}
+
+// Matching radix-2 DIT stage for the inverse transform.
+template <std::uint32_t MOD>
+__attribute__((target("avx2"))) inline void dit_stage_avx2(
+    std::vector<std::uint32_t>& a, int n, int len,
+    const std::vector<std::uint32_t>& w, const std::vector<std::uint32_t>& wh) {
+    const int half = len >> 1;
+    const __m256i mod = _mm256_set1_epi32((int)MOD);
+    const __m256i modm1 = _mm256_set1_epi32((int)MOD - 1);
+    for (int i = 0; i < n; i += len) {
+        for (int j = 0; j < half; j += 8) {
+            const __m256i u = _mm256_loadu_si256((const __m256i*)&a[i + j]);
+            const __m256i v = shoup8<MOD>(
+                _mm256_loadu_si256((const __m256i*)&a[i + j + half]),
+                _mm256_loadu_si256((const __m256i*)&w[j]),
+                _mm256_loadu_si256((const __m256i*)&wh[j]));
+            __m256i s = _mm256_add_epi32(u, v);
+            s = _mm256_sub_epi32(s,
+                                 _mm256_and_si256(_mm256_cmpgt_epi32(s, modm1), mod));
+            __m256i d = _mm256_sub_epi32(u, v);
+            d = _mm256_add_epi32(
+                d, _mm256_and_si256(_mm256_cmpgt_epi32(v, u), mod));
+            _mm256_storeu_si256((__m256i*)&a[i + j], s);
+            _mm256_storeu_si256((__m256i*)&a[i + j + half], d);
+        }
+    }
+}
+
+// Quotients of the inverse twiddles, needed only by the vectorised inverse.
+template <std::uint32_t MOD, std::uint32_t ROOT>
+inline void ensure_inv_hi(twiddle_cache<MOD, ROOT>& t, int h) {
+    const size_t half = t.inv[h].size();
+    if (half < 8 || !t.inv_hi[h].empty()) return;
+    t.inv_hi[h].resize(half);
+    for (size_t j = 0; j < half; ++j)
+        t.inv_hi[h][j] = std::uint32_t((dlimb(t.inv[h][j]) << LIMB_BITS) / MOD);
+}
+#endif
+
 constexpr int TWIDDLE_CACHE_MAX = 1 << 20;
 
 template <std::uint32_t MOD, std::uint32_t ROOT>
@@ -418,12 +540,25 @@ inline void transform(std::vector<std::uint32_t>& a, bool invert) {
         table = &get_twiddle_cache<MOD, ROOT>();
         table->ensure(levels);
     }
+#ifdef MAL_X86_SIMD
+    const bool simd = cached && avx2_ok();
+#else
+    const bool simd = false;
+#endif
+    (void)simd;
     if (!invert) {
         // DIF: natural order -> bit-reversed order.
         if (cached) {
             int h = levels - 1;
             for (int len = n; len > 2; len >>= 1, --h) {
                 const int half = len >> 1;
+#ifdef MAL_X86_SIMD
+                if (simd && half >= 8) {
+                    dif_stage_avx2<MOD>(a, n, len, table->fwd[h],
+                                        table->fwd_hi[h]);
+                    continue;
+                }
+#endif
                 const std::vector<std::uint32_t>& w = table->fwd[h];
                 const std::vector<std::uint32_t>& wh = table->fwd_hi[h];
                 for (int i = 0; i < n; i += len) {
@@ -474,6 +609,14 @@ inline void transform(std::vector<std::uint32_t>& a, bool invert) {
             const int half = len >> 1;
             const int h = __builtin_ctz(std::uint32_t(half));
             if (cached) {
+#ifdef MAL_X86_SIMD
+                if (simd && half >= 8) {
+                    ensure_inv_hi<MOD, ROOT>(*table, h);
+                    dit_stage_avx2<MOD>(a, n, len, table->inv[h],
+                                        table->inv_hi[h]);
+                    continue;
+                }
+#endif
                 const std::vector<std::uint32_t>& w = table->inv[h];
                 for (int i = 0; i < n; i += len) {
                     for (int j = 0; j < half; ++j) {
@@ -506,6 +649,12 @@ inline void transform(std::vector<std::uint32_t>& a, bool invert) {
         }
         const std::uint32_t inv_n =
             cached ? table->inv2[levels] : mod_pow(std::uint32_t(n), MOD - 2, MOD);
+#ifdef MAL_X86_SIMD
+        if (simd && n >= 8) {
+            scale_avx2<MOD>(a, n, inv_n);
+            return;
+        }
+#endif
         for (int i = 0; i < n; ++i)
             a[i] = std::uint32_t(dlimb(a[i]) * inv_n % MOD);
     }
@@ -640,6 +789,9 @@ struct cached_ntt_factor {
     size_t n = 0;      // slot count of the stored transform, 0 when unused
     size_t digits = 0; // 16-bit digit count of the operand
     std::vector<std::uint32_t> t1, t2;
+    // Shoup quotients of the stored transforms, so the pointwise product can
+    // use the same high-multiply reduction as the butterflies.
+    std::vector<std::uint32_t> t1_hi, t2_hi;
 };
 
 inline size_t ntt_slots_for(size_t need) {
@@ -672,19 +824,51 @@ inline bool build_cached_factor(const vec& b, cached_ntt_factor& f, size_t n) {
     std::copy(d.begin(), d.end(), f.t2.begin());
     ntt::transform<ntt::SMALL_MOD1, ntt::SMALL_ROOT>(f.t1, false);
     ntt::transform<ntt::SMALL_MOD2, ntt::SMALL_ROOT>(f.t2, false);
+#ifdef MAL_X86_SIMD
+    if (ntt::avx2_ok()) {
+        f.t1_hi.resize(n);
+        f.t2_hi.resize(n);
+        for (size_t i = 0; i < n; ++i) {
+            f.t1_hi[i] = std::uint32_t((dlimb(f.t1[i]) << LIMB_BITS) / ntt::SMALL_MOD1);
+            f.t2_hi[i] = std::uint32_t((dlimb(f.t2[i]) << LIMB_BITS) / ntt::SMALL_MOD2);
+        }
+    }
+#endif
     return true;
 }
+
+#ifdef MAL_X86_SIMD
+template <std::uint32_t MOD>
+__attribute__((target("avx2"))) inline void pointwise_avx2(
+    std::vector<std::uint32_t>& fa, const std::vector<std::uint32_t>& tb,
+    const std::vector<std::uint32_t>& tb_hi, size_t n) {
+    size_t i = 0;
+    for (; i + 8 <= n; i += 8) {
+        const __m256i x = _mm256_loadu_si256((const __m256i*)&fa[i]);
+        const __m256i w = _mm256_loadu_si256((const __m256i*)&tb[i]);
+        const __m256i wh = _mm256_loadu_si256((const __m256i*)&tb_hi[i]);
+        _mm256_storeu_si256((__m256i*)&fa[i], ntt::shoup8<MOD>(x, w, wh));
+    }
+    for (; i < n; ++i)
+        fa[i] = std::uint32_t(dlimb(fa[i]) * tb[i] % MOD);
+}
+#endif
 
 template <std::uint32_t MOD, std::uint32_t ROOT>
 inline void conv_against_transform(const std::vector<std::uint32_t>& d,
                                    const std::vector<std::uint32_t>& tb,
+                                   const std::vector<std::uint32_t>& tb_hi,
                                    size_t n, size_t need,
                                    std::vector<std::uint32_t>& out) {
     std::vector<std::uint32_t> fa(n, 0);
     for (size_t i = 0; i < d.size(); ++i) fa[i] = d[i] % MOD;
     ntt::transform<MOD, ROOT>(fa, false);
-    for (size_t i = 0; i < n; ++i)
-        fa[i] = std::uint32_t(dlimb(fa[i]) * tb[i] % MOD);
+#ifdef MAL_X86_SIMD
+    if (!tb_hi.empty() && ntt::avx2_ok()) pointwise_avx2<MOD>(fa, tb, tb_hi, n);
+    else
+#endif
+        for (size_t i = 0; i < n; ++i)
+            fa[i] = std::uint32_t(dlimb(fa[i]) * tb[i] % MOD);
     ntt::transform<MOD, ROOT>(fa, true);
     out.assign(fa.begin(), fa.begin() + need);
 }
@@ -700,8 +884,8 @@ inline vec mul_mag_cached(const vec& a, const vec& b, const cached_ntt_factor* f
     const size_t need = da.size() + f->digits - 1;
     if (need > f->n || ntt_slots_for(need) != f->n) return mul_mag(a, b);
     std::vector<std::uint32_t> r1, r2;
-    conv_against_transform<ntt::SMALL_MOD1, ntt::SMALL_ROOT>(da, f->t1, f->n, need, r1);
-    conv_against_transform<ntt::SMALL_MOD2, ntt::SMALL_ROOT>(da, f->t2, f->n, need, r2);
+    conv_against_transform<ntt::SMALL_MOD1, ntt::SMALL_ROOT>(da, f->t1, f->t1_hi, f->n, need, r1);
+    conv_against_transform<ntt::SMALL_MOD2, ntt::SMALL_ROOT>(da, f->t2, f->t2_hi, f->n, need, r2);
     return crt_pack<ntt::SMALL_MOD1, ntt::SMALL_MOD2>(r1, r2, need);
 }
 
