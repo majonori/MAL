@@ -112,6 +112,33 @@ int main() {
 """,
         "expect": ["4 13 22 15", "32 38", "4 13 22 15"],
     },
+    "bundles/dgf/README.md": {
+        "requires": ["bundles/common/README.md"],
+        "program": """
+int main() {
+    mal::dgf::series a = {0, 1, 2, 3, 4}, b = {0, 0, 1, 0, 0};
+    auto c = mal::dgf::mul(a, a);
+    auto d = mal::dgf::fast_mul(a, a);
+    auto e = mal::dgf::exp(b);
+    auto f = mal::dgf::DGF::zeta(4).inverse().inverse();
+    std::cout << (c == d) << ' ' << e[1].v << ' ' << e[2].v
+              << ' ' << (f.coefficients() == mal::dgf::DGF::zeta(4).coefficients()) << '\\n';
+    return 0;
+}
+""",
+        "expect": ["1 1 1 1"],
+    },
+    "bundles/number_theory/README.md": {
+        "program": """
+int main() {
+    auto s = mal::number_theory::make_sieve(100);
+    std::cout << s.prime(97) << ' ' << mal::number_theory::is_prime(97) << ' '
+              << mal::number_theory::totients(s)[36] << '\\n';
+    return 0;
+}
+""",
+        "expect": ["1 1 12"],
+    },
 }
 
 

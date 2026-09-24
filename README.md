@@ -55,6 +55,12 @@ MAL/
 │   ├── poly/
 │   │   ├── main.cpp           # poly 模块合并、压行版本
 │   │   └── README.md          # poly 接口声明：选手复制这一段
+│   ├── dgf/
+│   │   ├── main.cpp           # DGF 模块合并、压行版本
+│   │   └── README.md          # DGF API、复杂度与声明块
+│   ├── number_theory/
+│   │   ├── main.cpp           # 数论模块合并、压行版本
+│   │   └── README.md          # 筛法与素性测试声明块
 │   ├── remote/
 │   │   ├── main.cpp           # 跨编译单元薄接口发布版
 │   │   └── README.md          # 薄接口声明：选手复制这一段
@@ -69,6 +75,15 @@ MAL/
 │   ├── common/
 │   │   ├── consts.hpp
 │   │   └── modint.hpp         # 静态模数类模板
+│   ├── dgf/                   # 变换、卷积、形式 DGF 运算
+│   │   ├── transform.hpp
+│   │   ├── convolution.hpp
+│   │   ├── fps.hpp
+│   │   ├── multiplicative.hpp
+│   │   └── dgf.hpp           # 积性信息与自动路径选择
+│   ├── number_theory/         # 线性筛与确定性 64 位素性测试
+│   │   ├── sieve.hpp
+│   │   └── primality.hpp
 │   ├── hp/                    # 高精度整数 / 二进制浮点
 │   │   ├── bigfloat.hpp
 │   │   └── bigint.hpp
@@ -86,6 +101,10 @@ MAL/
 │   │   └── bench_poly.cpp
 │   ├── docs/
 │   │   └── check_declarations.py  # 文档声明块可直接复制的编译检查
+│   ├── dgf/
+│   │   └── test_dgf.cpp
+│   ├── number_theory/
+│   │   └── test_number_theory.cpp
 │   ├── hp/
 │       ├── test_bigfloat.cpp
 │       └── test_bigint.cpp
@@ -259,6 +278,8 @@ std::string bigint_add(const std::string& a, const std::string& b);
 | hp（高精度） | [`bundles/hp/README.md`](bundles/hp/README.md#洛谷交互题封装) | `mal::BigInt`、`mal::BigFloat`：四则、比较、`pow`/`sqrt`/`nroot`、`exp`/`log`、`pi`/`ln2`、输入输出 |
 | common | [`bundles/common/README.md`](bundles/common/README.md#选手复制这一段) | `mal::mint<MOD>`、`mal::glim`、`PI` 等 |
 | poly | [`bundles/poly/README.md`](bundles/poly/README.md#选手复制这一段) | `mal::ntt_mul`、`mal::fft_mul` 等卷积接口 |
+| dgf | [`bundles/dgf/README.md`](bundles/dgf/README.md#选手复制这一段) | zeta/Möbius、gcd/lcm、Dirichlet 卷积与形式 DGF 运算 |
+| number_theory | [`bundles/number_theory/README.md`](bundles/number_theory/README.md#选手复制这一段) | 线性筛、φ/μ 表、64 位素性测试 |
 | remote | [`bundles/remote/README.md`](bundles/remote/README.md#可直接复制的接口声明) | 上面 hp 那一行的薄包装本体，含全部函数清单 |
 
 各模块的声明块都由 `tests/docs/check_declarations.py` 逐个编译、

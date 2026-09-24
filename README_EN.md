@@ -50,6 +50,12 @@ MAL/
 │   ├── poly/
 │   │   ├── main.cpp           # Merged, minified polynomial module
 │   │   └── README.md          # Copy-paste declaration block
+│   ├── dgf/
+│   │   ├── main.cpp           # Merged, minified Dirichlet-series module
+│   │   └── README.md          # API, complexity and declaration block
+│   ├── number_theory/
+│   │   ├── main.cpp           # Merged, minified number theory module
+│   │   └── README.md          # Sieve and primality declarations
 │   ├── remote/
 │   │   ├── main.cpp           # Cross-TU thin interface release
 │   │   └── README.md          # Copy-paste declaration block
@@ -64,6 +70,15 @@ MAL/
 │   ├── common/
 │   │   ├── consts.hpp
 │   │   └── modint.hpp         # Static modulus class template
+│   ├── dgf/                   # Dirichlet transforms, convolution and formal series
+│   │   ├── transform.hpp
+│   │   ├── convolution.hpp
+│   │   ├── fps.hpp
+│   │   ├── multiplicative.hpp
+│   │   └── dgf.hpp           # Structure-aware DGF class
+│   ├── number_theory/         # Linear sieve, deterministic 64-bit primality
+│   │   ├── sieve.hpp
+│   │   └── primality.hpp
 │   ├── hp/                    # Big integers / binary floating point
 │   │   ├── bigfloat.hpp
 │   │   └── bigint.hpp
@@ -81,6 +96,10 @@ MAL/
 │   │   └── bench_poly.cpp
 │   ├── docs/
 │   │   └── check_declarations.py  # Compiles the declaration blocks from the docs
+│   ├── dgf/
+│   │   └── test_dgf.cpp
+│   ├── number_theory/
+│   │   └── test_number_theory.cpp
 │   ├── hp/
 │       ├── test_bigfloat.cpp
 │       └── test_bigint.cpp
@@ -98,6 +117,12 @@ high-precision module are documented in
 
 The convolution module's algorithms are documented in
 [`bundles/poly/README.md`](bundles/poly/README.md).
+
+Dirichlet generating functions and the declaration-only contest interface are
+documented in [`bundles/dgf/README.md`](bundles/dgf/README.md).
+
+The sieve and 64-bit primality interfaces are documented in
+[`bundles/number_theory/README.md`](bundles/number_theory/README.md).
 
 The repository does not keep contestant-submission examples that embed MAL.
 The problem-side `interactive_lib.cpp` provides the `mal::` interfaces, and
