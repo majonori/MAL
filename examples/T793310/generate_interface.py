@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Regenerate interactive_lib.cpp and main.cpp for T793310.
 
-The contestant block is taken from bundles/remote/README.md (itself kept in
+The contestant block is taken from bundles/hp/README.md (itself kept in
 sync with include/remote/interface.hpp), so the reference program always
 contains exactly the declarations a contestant copies.
 

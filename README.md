@@ -280,7 +280,6 @@ std::string bigint_add(const std::string& a, const std::string& b);
 | poly | [`bundles/poly/README.md`](bundles/poly/README.md#选手复制这一段) | `mal::ntt_mul`、`mal::fft_mul` 等卷积接口 |
 | dgf | [`bundles/dgf/README.md`](bundles/dgf/README.md#选手复制这一段) | zeta/Möbius、gcd/lcm、Dirichlet 卷积与形式 DGF 运算 |
 | number_theory | [`bundles/number_theory/README.md`](bundles/number_theory/README.md#选手复制这一段) | 线性筛、φ/μ 表、64 位素性测试 |
-| remote | [`bundles/remote/README.md`](bundles/remote/README.md#可直接复制的接口声明) | 上面 hp 那一行的薄包装本体，含全部函数清单 |
 
 各模块的声明块都由 `tests/docs/check_declarations.py` 逐个编译、
 与 `bundles/interactive_lib.cpp` 链接并运行验证。

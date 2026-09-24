@@ -44,24 +44,6 @@ DOCS = [
 # Per-module copy-paste examples: the README shows the code a contestant writes.
 # Each entry is (prepend, extra translation units, stdin, expected lines).
 MODULE_EXAMPLES = {
-    "bundles/remote/README.md": {
-        "prepend_from_doc": True,
-        "extra": ["bundles/interactive_lib.cpp"],
-        "stdin": "123 456\n",
-        "expect": [
-            "579",
-            "56088",
-            "0",
-            "28153056843",
-            "11",
-            "7b",
-            "1690.5365853658536585365853658536585365853658536585365853658536585365853658536732",
-            "1.3096197686...",
-            "4.8121843553...",
-            "11.0905365064...",
-            "3.1415926535...",
-        ],
-    },
     "bundles/hp/README.md": {
         "prepend": "",
         "stdin": "",
