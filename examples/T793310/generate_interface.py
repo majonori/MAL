@@ -15,12 +15,14 @@ import shutil
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 
-# The interactive library is the normal MAL bundle: include/remote/ has the
-# thin value interface, and every operator/function it declares is exported as
-# a non-inline symbol.
-shutil.copyfile(ROOT / "bundles" / "interactive_lib.cpp", HERE / "interactive_lib.cpp")
+# 题目自带的交互库由 scripts/build.cpp 生成：只打包远程接口和它的依赖，库内部
+# 标识符缩成短名（体积小一半左右）。这里只在它缺失时退回用完整库，保证脚本
+# 单独也能跑。完整库（含 dgf / poly / number_theory 等模块）仍放在
+# bundles/interactive_lib.cpp。
+if not (HERE / "interactive_lib.cpp").exists():
+    shutil.copyfile(ROOT / "bundles" / "interactive_lib.cpp", HERE / "interactive_lib.cpp")
 
-readme = (ROOT / "bundles" / "remote" / "README.md").read_text()
+readme = (ROOT / "bundles" / "hp" / "README.md").read_text()
 blocks = re.findall(r"```cpp\n(.*?)```", readme, re.S)
 interface = [b for b in blocks if "struct BigInt" in b and "int main" not in b][0].strip()
 

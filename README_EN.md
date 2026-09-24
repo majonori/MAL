@@ -61,7 +61,7 @@ MAL/
 │   │   └── README.md          # Copy-paste declaration block
 │   └── interactive_lib.cpp    # Luogu interactive library version
 ├── examples/T793310/    # Luogu interactive problem interface and data
-│   ├── interactive_lib.cpp    # Cross-TU interface interactive library
+│   ├── interactive_lib.cpp    # Problem library (only the modules it needs)
 │   ├── main.cpp               # Contestant example
 │   ├── 1.in ... 10.ans        # 10 test cases
 │   ├── generate_interface.py  # Interface generator

@@ -48,33 +48,33 @@ DATA = [
         ("log", "2"),
         ("nroot", "1000000000000000000000000000000 3"),
     ],
-    # 2: ten 1000-digit multiplications
-    [mul(1000, 10 + 2 * i) for i in range(10)],
-    # 3: five 40000-digit multiplications
-    [mul(40000, 200 + 2 * i) for i in range(5)],
-    # 4: integer k-th roots of 40000-digit numbers
-    [("nroot", f"{digits(40000, 400 + i)} {2 + i}") for i in range(4)],
-    # 5: exp / log, with one log of a million-digit integer
+    # 2: ten 2000-digit multiplications
+    [mul(2000, 10 + 2 * i) for i in range(10)],
+    # 3: five 200000-digit multiplications
+    [mul(200000, 200 + 2 * i) for i in range(5)],
+    # 4: integer k-th roots of 200000-digit numbers
+    [("nroot", f"{digits(200000, 400 + i)} {2 + i}") for i in range(4)],
+    # 5: exp / log, with one log of a two-million-digit integer
     [
-        ("log", digits(1000000, 500)),
+        ("log", digits(2000000, 500)),
         ("log", "123456789012345678901234567890"),
         ("exp", "1.5"),
         ("exp", "-3.25"),
         ("log", "2"),
     ],
-    # 6: additions and subtractions of 50000-digit numbers
+    # 6: additions and subtractions of 200000-digit numbers
     [
-        ("+" if i % 2 else "-", f"{digits(50000, 600 + i)} {digits(50000, 700 + i)}")
+        ("+" if i % 2 else "-", f"{digits(200000, 600 + i)} {digits(200000, 700 + i)}")
         for i in range(6)
     ],
-    # 7: three 100000-digit multiplications
-    [mul(100000, 800 + 2 * i) for i in range(3)],
-    # 8: cube root of a 300000-digit number (Newton on top of division)
-    [("nroot", f"{digits(300000, 1200)} 3")],
+    # 7: three 400000-digit multiplications
+    [mul(400000, 800 + 2 * i) for i in range(3)],
+    # 8: cube root of a 1200000-digit number (Newton on top of division)
+    [("nroot", f"{digits(1200000, 1200)} 3")],
     # 9 and 10: the heavy points are divisions with huge operands; MAL's
     # Newton reciprocal beats the schoolbook division of other libraries here.
-    [("/", f"{digits(1600000, 1300)} {digits(1580000, 1400)}")],
-    [("/", f"{digits(2000000, 1500)} {digits(1980000, 1600)}")],
+    [("/", f"{digits(6400000, 1300)} {digits(6320000, 1400)}")],
+    [("/", f"{digits(8000000, 1500)} {digits(7920000, 1600)}")],
 ]
 
 

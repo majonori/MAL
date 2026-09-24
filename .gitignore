@@ -2,3 +2,4 @@ tests/.build/
 __pycache__/
 *.pyc
 *.exe
+.DS_Store

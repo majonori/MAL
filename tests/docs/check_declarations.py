@@ -39,6 +39,7 @@ DOCS = [
     ROOT / "TUTORIAL.md",
     ROOT / "bundles/hp/README.md",
     ROOT / "examples/T793310/README.md",
+    ROOT / "examples/T793310/statement.md",
 ]
 
 # Per-module copy-paste examples: the README shows the code a contestant writes.
@@ -59,6 +60,7 @@ MODULE_EXAMPLES = {
 # directory.
 TEMPLATE_INPUT = {
     "examples/T793310/README.md": ("1\n+\n123 456\n", ["579"]),
+    "examples/T793310/statement.md": ("1\n+\n123 456\n", ["579"]),
 }
 DEFAULT_TEMPLATE_INPUT = ("123 456\n", ["579"])
 
@@ -309,6 +311,30 @@ int main() {
                         failures.append(
                             f"interface block printed {have!r} on line {i + 1} "
                             f"instead of {want!r}")
+                        break
+
+        # 2a. the slim library shipped with the example problem must export the
+        # same interface (it only packs the modules the interface needs and
+        # shortens the library-internal identifiers).
+        slim = ROOT / "examples/T793310/interactive_lib.cpp"
+        if not failures and slim.exists():
+            exe = tmp / "contestant_slim"
+            res = compile_and_link([main_cpp, slim], exe, tmp)
+            if res.returncode:
+                failures.append(
+                    "examples/T793310/interactive_lib.cpp does not provide the "
+                    f"documented interface:\n{res.stderr.strip()}")
+            else:
+                out = run([exe], input="123 456 2.5 0.5\n",
+                          capture_output=True, text=True).stdout.strip().splitlines()
+                for i, want in enumerate(interface_expect):
+                    have = out[i] if i < len(out) else "<missing>"
+                    ok = (have.startswith(want[:-3]) if want.endswith("...")
+                          else have.rstrip() == want.rstrip())
+                    if not ok:
+                        failures.append(
+                            f"examples/T793310/interactive_lib.cpp printed "
+                            f"{have!r} on line {i + 1} instead of {want!r}")
                         break
 
         # 2b. every complete submission template in the docs must build and pass

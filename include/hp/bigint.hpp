@@ -929,11 +929,45 @@ inline vec sqr_mag(const vec& a) {
     return mul_mag(a, a);
 }
 
+// Overlap-add for a very unbalanced product: the short operand is transformed
+// once, then reused for each block of the long one.  Returns false when the
+// shape does not fit the transform budget, in which case the caller falls back.
+inline bool mul_blocked(const vec& large, const vec& small, vec& out) {
+    if (small.empty() || large.empty()) {
+        out.clear();
+        return true;
+    }
+    size_t n = 1;
+    while (n < 2 * small.size()) n <<= 1;
+    if (n > CACHED_FACTOR_MAX_SLOTS || n > ntt::MAX_SMALL) return false;
+    cached_ntt_factor f;
+    if (!build_cached_factor(small, f, n)) return false;
+    const size_t half = n / 2;                       // limb capacity of one block + operand
+    if (half <= small.size()) return false;
+    const size_t block = half - small.size() + 1;
+    out.clear();
+    for (size_t l = 0; l < large.size(); l += block) {
+        const size_t len = std::min(block, large.size() - l);
+        const vec part(large.begin() + l, large.begin() + l + len);
+        const vec prod = mul_mag_cached(part, small, &f);
+        out = add_at(out, prod, l, large.size() + small.size() + 1);
+    }
+    trim(out);
+    return true;
+}
+
 inline vec mul_mag(const vec& a, const vec& b) {
     if (a.empty() || b.empty()) return vec();
     const size_t mn = std::min(a.size(), b.size());
     const size_t mx = std::max(a.size(), b.size());
     if (mn <= KARATSUBA_THRESHOLD) return mul_basic(a, b);
+    // A short operand makes the products overlap: transform it once and reuse
+    // that transform for every block of the long operand.
+    if (mx >= 4 * mn && mx >= FFT_MIN_OPERAND) {
+        vec out;
+        if (mul_blocked(a.size() >= b.size() ? a : b, a.size() >= b.size() ? b : a, out))
+            return out;
+    }
     if (mx >= FFT_THRESHOLD && mn >= FFT_THRESHOLD / 2) return mul_ntt(a, b);
     // Below that the choice depends on how much the transform has to pad: the
     // convolution needs 2*(mx+mn) 16-bit slots rounded up to a power of two,

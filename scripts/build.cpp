@@ -115,6 +115,201 @@ str pack(const str&s){
 inline bool src(const str&s){
   size_t p=s.find_last_of('.');if(p==str::npos)return 0;str x=s.substr(p);return x==".h"||x==".hh"||x==".hpp"||x==".hxx"||x==".c"||x==".cc"||x==".cpp"||x==".cxx";
 }
+
+// ---------------------------------------------------------------------------
+// 标识符缩写。交互库要和选手的翻译单元链接，所以公开接口里出现的名字、关键字、
+// 预处理行里的名字、以及任何被 `::` 限定的名字都原样保留，其余内部名字按出现
+// 频率从高到低换成最短的可用短名，纯粹为了缩小源文件体积。
+// ---------------------------------------------------------------------------
+inline const std::set<str>& keywords(){
+  static const std::set<str> k={
+    "alignas","alignof","and","and_eq","asm","auto","bitand","bitor","bool","break",
+    "case","catch","char","char16_t","char32_t","class","compl","const","constexpr",
+    "const_cast","continue","decltype","default","delete","do","double","dynamic_cast",
+    "else","enum","explicit","export","extern","false","float","for","friend","goto",
+    "if","inline","int","long","mutable","namespace","new","noexcept","not","not_eq",
+    "nullptr","operator","or","or_eq","private","protected","public","register",
+    "reinterpret_cast","return","short","signed","sizeof","static","static_assert",
+    "static_cast","struct","switch","template","this","thread_local","throw","true",
+    "try","typedef","typeid","typename","union","unsigned","using","virtual","void",
+    "volatile","wchar_t","while","xor","xor_eq"};
+  return k;
+}
+
+// 第 index 个短名（长度为 1 的先排完，再排长度为 2 的）。
+str short_name(u4 index){
+  static const str alphabet="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const u4 base=52;
+  u4 length=1,count=base;
+  while(index>=count){index-=count;++length;count*=base;}
+  str out(length,'a');
+  for(u4 i=0;i<length;++i){out[length-1-i]=alphabet[index%base];index/=base;}
+  return out;
+}
+
+// 收集 [b,e) 区间里的标识符。
+void collect_ids(const str&s,size_t b,size_t e,std::set<str>&out){
+  for(size_t i=b;i<e;){
+    if(isdigit((unsigned char)s[i])||(s[i]=='.'&&i+1<e&&isdigit((unsigned char)s[i+1]))){
+      while(i<e&&(id(s[i])||s[i]=='.'))++i;
+      continue;
+    }
+    if((isalpha((unsigned char)s[i])||s[i]=='_')&&id(s[i])){
+      size_t j=i;while(j<e&&id(s[j]))++j;
+      out.insert(s.substr(i,j-i));i=j;
+    }else ++i;
+  }
+}
+
+// 数字字面量（0x/0b、小数、指数、u/ll/f 后缀）整体跳过。
+size_t number_end(const str&s,size_t i){
+  const size_t n=s.size();
+  if(s[i]=='.')++i;
+  while(i<n&&(isdigit((unsigned char)s[i])||s[i]=='_'))++i;
+  if(i<n&&s[i]=='.'){++i;while(i<n&&(isdigit((unsigned char)s[i])||s[i]=='_'))++i;}
+  if(i<n&&(s[i]=='e'||s[i]=='E'||s[i]=='p'||s[i]=='P')){
+    size_t j=i+1;if(j<n&&(s[j]=='+'||s[j]=='-'))++j;
+    if(j<n&&isdigit((unsigned char)s[j])){i=j;while(i<n&&isdigit((unsigned char)s[i]))++i;}
+  }
+  while(i<n&&id(s[i]))++i;
+  return i;
+}
+
+str shorten(const str&s,const std::set<str>&extra){
+  const size_t n=s.size();
+  std::set<str> keep=extra;
+  keep.insert(keywords().begin(),keywords().end());
+  for(const str&x:{"main","std","size_t","ptrdiff_t","int8_t","uint8_t","int16_t","uint16_t",
+    "int32_t","uint32_t","int64_t","uint64_t","intptr_t","uintptr_t","max_align_t","va_list",
+    "HUGE_VAL","HUGE_VALF","HUGE_VALL","INFINITY","NAN","NULL","EOF","FILE","errno","assert",
+    "isnan","isfinite","isinf","signbit","printf","fprintf","memcpy","memmove","memset",
+    "strlen","powl","expl","logl","sqrtl"})keep.insert(x);
+  // 预处理行整行原样保留（宏名、include 名都不能动）。
+  {
+    bool cont=false;
+    for(size_t i=0;i<n;){
+      size_t e=s.find('\n',i);if(e==str::npos)e=n;
+      size_t p=i;while(p<e&&(s[p]==' '||s[p]=='\t'))++p;
+      const bool line=(cont||(p<e&&s[p]=='#'));
+      if(line){
+        collect_ids(s,i,e,keep);
+        cont=e>i&&s[e-1]=='\\';
+      }else cont=false;
+      i=e+1;
+    }
+  }
+  // 词法扫描：字符串/字符字面量原样保留，标识符记录频率与是否被 `::` 限定。
+  std::map<str,u4> freq;
+  std::set<str> qualified,under;
+  for(size_t i=0;i<n;){
+    const char c=s[i];
+    if(c=='"'||c=='\''){
+      const char q=c;++i;
+      while(i<n){const char d=s[i++];if(d=='\\'&&i<n)++i;else if(d==q)break;}
+      continue;
+    }
+    if(isdigit((unsigned char)c)||(c=='.'&&i+1<n&&isdigit((unsigned char)s[i+1]))){
+      i=number_end(s,i);continue;
+    }
+    if((isalpha((unsigned char)c)||c=='_')&&id(c)){
+      size_t j=i;while(j<n&&id(s[j]))++j;
+      const str name=s.substr(i,j-i);
+      ++freq[name];
+      if(name[0]=='_')under.insert(name);
+      bool q=false;
+      size_t p=i;while(p>0&&ws(s[p-1]))--p;
+      // `::name`、`obj.name`、`ptr->name`、`((attr)`：都可能指向文件外的定义。
+      if(p>=2&&s[p-1]==':'&&s[p-2]==':')q=true;
+      if(p>=1&&s[p-1]=='.'&&p>=2&&(id(s[p-2])||s[p-2]==')'||s[p-2]==']'))q=true;
+      if(p>=2&&s[p-1]=='>'&&s[p-2]=='-')q=true;
+      if(p>=2&&s[p-1]=='('&&s[p-2]=='(')q=true;
+      size_t r=j;while(r<n&&ws(s[r]))++r;
+      if(r+1<n&&s[r]==':'&&s[r+1]==':')q=true;
+      if(q)qualified.insert(name);
+      i=j;continue;
+    }
+    ++i;
+  }
+  keep.insert(qualified.begin(),qualified.end());
+  keep.insert(under.begin(),under.end());
+  // 候选：内部名字按出现频率从高到低吃最短的短名。
+  std::vector<std::pair<u4,str>> order;                 // (频率, 名字)
+  for(const auto&kv:freq)if(!keep.count(kv.first))order.push_back({kv.second,kv.first});
+  std::sort(order.begin(),order.end(),[](const std::pair<u4,str>&a,const std::pair<u4,str>&b){
+    if(a.first!=b.first)return a.first>b.first;
+    return a.second<b.second;
+  });
+  std::map<str,str> re;
+  std::set<str> used=keep;
+  u4 next=0;
+  for(const auto&it:order){
+    str cand;
+    while(true){
+      cand=short_name(next++);
+      if(!used.count(cand)&&!keywords().count(cand))break;
+    }
+    used.insert(cand);
+    re[it.second]=cand;
+  }
+  // 调试用：把“原名→短名”的映射写出来（构建脚本自身排查冲突时很方便）。
+  if(const char*dump=getenv("MAL_SHORTEN_MAP")){
+    std::ofstream f(dump);
+    for(const auto&kv:re)f<<kv.first<<' '<<kv.second<<'\n';
+  }
+  // 输出。
+  str o;o.reserve(n);
+  for(size_t i=0;i<n;){
+    const char c=s[i];
+    if(c=='"'||c=='\''){
+      const char q=c;o+=c;++i;
+      while(i<n){const char d=s[i++];o+=d;if(d=='\\'&&i<n)o+=s[i++];else if(d==q)break;}
+      continue;
+    }
+    if(isdigit((unsigned char)c)||(c=='.'&&i+1<n&&isdigit((unsigned char)s[i+1]))){
+      const size_t j=number_end(s,i);o.append(s,i,j-i);i=j;continue;
+    }
+    if((isalpha((unsigned char)c)||c=='_')&&id(c)){
+      size_t j=i;while(j<n&&id(s[j]))++j;
+      const str name=s.substr(i,j-i);
+      const auto f=re.find(name);
+      o+=(f==re.end()?name:f->second);
+      i=j;continue;
+    }
+    o+=c;++i;
+  }
+  return o;
+}
+
+// 公开接口里出现的标识符：这些名字会出现在选手的翻译单元里，必须保留。
+std::set<str> public_ids(const str&header){
+  std::set<str> out;
+  if(file(header)){const str text=read(header);collect_ids(text,0,text.size(),out);}
+  return out;
+}
+
+// 文档代码块里出现过的名字（选手会照着抄的那些声明）也一律保留：
+// 这样缩过名的交互库和 README 承诺的符号完全对得上。
+void doc_ids(const str&root,std::set<str>&out){
+  std::vector<str> docs={"/README.md","/README_EN.md","/TUTORIAL.md","/examples/T793310/README.md"};
+  for(const str&f:ls(root+"/bundles")){
+    if(!isdir(root+"/bundles/"+f))continue;
+    docs.push_back("/bundles/"+f+"/README.md");
+  }
+  for(const str&d:docs){
+    const str path=root+d;
+    if(!file(path))continue;
+    const str text=read(path);
+    size_t i=0;
+    while((i=text.find("```cpp",i))!=str::npos){
+      const size_t b=text.find('\n',i);
+      const size_t e=text.find("```",b==str::npos?i:b+1);
+      if(b==str::npos||e==str::npos)break;
+      collect_ids(text,b,e,out);
+      i=e+3;
+    }
+  }
+}
+
 void scan(const str&d,std::vector<str>&ds,std::vector<str>&all){
   std::vector<str>v=ls(d),f;for(str x:v){str p=norm(d+"/"+x);if(isdir(p))scan(p,ds,all);else if(src(x))f.push_back(p),all.push_back(p);}if(!f.empty())ds.push_back(d);
 }
@@ -138,7 +333,24 @@ void all(str in,str out){
   root=norm(in);in=root;out=norm(out);if(!isdir(in))throw std::runtime_error("include directory not found: "+in);
   std::vector<str>ds,fs;scan(in,ds,fs);std::sort(ds.begin(),ds.end());std::sort(fs.begin(),fs.end());if(fs.empty())throw std::runtime_error("no source files under "+in);
   for(str d:ds){str r=rel(d,in),fn=norm(out+(r.empty()?"":"/"+r)+"/main.cpp");write(fn,build(direct(d)));fprintf(stderr,"build: %s\n",fn.c_str());}
-  str fn=norm(out+"/interactive_lib.cpp");write(fn,build(fs));fprintf(stderr,"build: %s\n",fn.c_str());
+  const str fn=norm(out+"/interactive_lib.cpp");
+  write(fn,build(fs));
+  fprintf(stderr,"build: %s\n",fn.c_str());
+  // 题目用的交互库：只打包远程接口和它的依赖，并把库内部标识符缩成短名。
+  // 公开名字（接口声明 + 文档里出现过的）原样保留，保证和选手的翻译单元
+  // 以及 README 承诺的符号一致。
+  str proj=project();
+  if(proj.empty())proj=dir(norm(in));
+  const str entry=norm(in+"/remote/impl.hpp");
+  const str example=norm(proj+"/examples/T793310/interactive_lib.cpp");
+  if(file(entry)&&isdir(dir(example))){
+    std::set<str> keep=public_ids(norm(in+"/remote/interface.hpp"));
+    doc_ids(proj,keep);
+    const str small=norm(example+".tmp");
+    write(small,shorten(build({entry}),keep));
+    rename(small.c_str(),example.c_str());
+    fprintf(stderr,"build: %s (only the modules the interface needs)\n",example.c_str());
+  }
 }
 
 } // namespace

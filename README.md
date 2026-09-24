@@ -66,7 +66,7 @@ MAL/
 │   │   └── README.md          # 薄接口声明：选手复制这一段
 │   └── interactive_lib.cpp    # 洛谷交互库版本
 ├── examples/T793310/    # 洛谷交互题接口与数据
-│   ├── interactive_lib.cpp    # 跨编译单元接口交互库
+│   ├── interactive_lib.cpp    # 本题交互库（只含接口用到的模块）
 │   ├── main.cpp               # 选手示例
 │   ├── 1.in ... 10.ans        # 10 组数据
 │   ├── generate_interface.py  # 接口生成脚本
