@@ -27,7 +27,6 @@ struct mint {
     int v;
     mint(ll v_ = 0) : v(int(v_ % MOD)) { if (v < 0) v += MOD; }
 
-    // 运算结果已经取过模，这里走"免取模"构造：否则每次蝶形都会多一次 % MOD
     friend mint operator+(mint a, mint b) {
         const int r = a.v + b.v;
         return mint(r >= MOD ? r - MOD : r, unchecked{});

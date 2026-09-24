@@ -270,16 +270,33 @@ public:
         BigInt q, r;
         for (int attempt = 0; attempt < 2; ++attempt) {
             long long p = (long long)digits - 1 - dec_exp;
-            BigInt num = mag;
-            BigInt den(1);
-            if (e_ >= 0) num = num << (size_t)e_;
-            else den = den << (size_t)(-e_);
-            if (p >= 0) num = num * scale_pow10(p);
-            else den = den * scale_pow10(-p);
-            BigInt::divmod(num, den, q, r);
-            BigInt twice = r << 1;
-            int c = compare(twice, den);
-            if (c > 0 || (c == 0 && q.bit(0))) q += BigInt(1);
+            if (p >= 0) {
+                // x * 10^p = mag * 5^p * 2^(e_+p).  Scaling by a power of ten
+                // is a product plus a shift this way, with no division.
+                BigInt five(5);
+                BigInt t = mag * five.pow((unsigned long long)p);
+                const long long sh = e_ + p;
+                if (sh >= 0) {
+                    q = t << (size_t)sh;
+                } else {
+                    const size_t down = (size_t)(-sh);
+                    const bool round_bit = t.bit(down - 1);
+                    const bool sticky = down > 1 && t.any_low_bits(down - 1);
+                    q = t >> down;
+                    // Half-to-even, matching the exact remainder rule below.
+                    if (round_bit && (sticky || q.bit(0))) q += BigInt(1);
+                }
+            } else {
+                BigInt num = mag;
+                BigInt den(1);
+                if (e_ >= 0) num = num << (size_t)e_;
+                else den = den << (size_t)(-e_);
+                den = den * scale_pow10(-p);
+                BigInt::divmod(num, den, q, r);
+                BigInt twice = r << 1;
+                int c = compare(twice, den);
+                if (c > 0 || (c == 0 && q.bit(0))) q += BigInt(1);
+            }
             std::string ds = q.to_string();
             if ((int)ds.size() <= digits) {
                 if (dec_exp >= digits - 1) {

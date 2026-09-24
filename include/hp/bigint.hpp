@@ -193,11 +193,16 @@ inline bool signed_div_small_exact(Signed& x, dlimb d) {
     return rem == 0;
 }
 
-// Fixed, deterministic crossover points.  In decimal digits these are about
-// 3.1e2, 1.8e3 and 9.9e3 for balanced operands.
+// Fixed, deterministic crossover points, measured (minimum of many runs, -O2)
+// against the backends they switch between.  In decimal digits the four
+// thresholds are about 3.1e2, 3.1e3, 4.3e3 and 9.9e3 for balanced operands.
 constexpr size_t KARATSUBA_THRESHOLD = 32;
-constexpr size_t TOOM_THRESHOLD = 192;
+constexpr size_t TOOM_THRESHOLD = 320;
 constexpr size_t FFT_THRESHOLD = 1024;
+// The transform also wins for operands below FFT_THRESHOLD as long as they are
+// wide enough to amortise its setup and the power-of-two padding of the
+// convolution length stays small (see the dispatch in mul_mag).
+constexpr size_t FFT_MIN_OPERAND = 448;
 constexpr size_t NEWTON_DIV_MIN_DIVISOR_LIMBS = 8;
 constexpr size_t NEWTON_DIV_MIN_QUOTIENT_BITS = 2048;
 
@@ -339,12 +344,14 @@ inline std::uint32_t mod_pow_const(std::uint32_t e) {
 template <std::uint32_t MOD, std::uint32_t ROOT>
 struct twiddle_cache {
     std::vector<std::vector<std::uint32_t>> fwd, inv;
+    std::vector<std::vector<std::uint32_t>> fwd_hi;
     std::vector<std::uint32_t> inv2;
 
     void ensure(int levels) {
         if (int(fwd.size()) > levels) return;
         fwd.resize(levels + 1);
         inv.resize(levels + 1);
+        fwd_hi.resize(levels + 1);
         inv2.resize(levels + 1);
         const std::uint32_t half_mod = std::uint32_t((MOD + 1) / 2);
         inv2[0] = 1;
@@ -355,6 +362,7 @@ struct twiddle_cache {
             if (!fwd[h].empty()) continue;
             fwd[h].assign(half, 1);
             inv[h].assign(half, 1);
+            fwd_hi[h].assign(half, 1);
             if (half == 1) continue;
             const std::uint32_t wf =
                 mod_pow_const<MOD, ROOT>(std::uint32_t((MOD - 1) / (half << 1)));
@@ -364,9 +372,32 @@ struct twiddle_cache {
                 fwd[h][j] = std::uint32_t(dlimb(fwd[h][j - 1]) * wf % MOD);
                 inv[h][j] = std::uint32_t(dlimb(inv[h][j - 1]) * wi % MOD);
             }
+            // Shoup quotients: floor(w * 2^32 / MOD) lets the butterfly
+            // replace the 64-bit remainder by a high multiply and two narrow
+            // multiplies (see mul_mod_shoup below).
+            for (size_t j = 0; j < half; ++j)
+                fwd_hi[h][j] = std::uint32_t((dlimb(fwd[h][j]) << LIMB_BITS) / MOD);
         }
     }
 };
+
+// d * w mod MOD, with w_hi = floor(w * 2^32 / MOD) precomputed.  The high
+// product gives q = floor(d * w / MOD) up to one, so d * w - q * MOD lands in
+// [0, 2*MOD) and one conditional step finishes the reduction.  For moduli
+// below 2^31 that value still fits in 32 bits, so the whole reduction stays
+// narrow.
+template <std::uint32_t MOD>
+inline std::uint32_t mul_mod_shoup(std::uint32_t d, std::uint32_t w,
+                                   std::uint32_t w_hi) {
+    const dlimb q = dlimb(d) * w_hi;
+    if (MOD < (std::uint32_t(1) << 31)) {
+        const std::uint32_t r =
+            std::uint32_t(dlimb(d) * w - (q >> LIMB_BITS) * MOD);
+        return r >= MOD ? r - MOD : r;
+    }
+    const dlimb r = dlimb(d) * w - (q >> LIMB_BITS) * MOD;
+    return std::uint32_t(r >= MOD ? r - MOD : r);
+}
 
 template <std::uint32_t MOD, std::uint32_t ROOT>
 inline twiddle_cache<MOD, ROOT>& get_twiddle_cache() {
@@ -391,18 +422,28 @@ inline void transform(std::vector<std::uint32_t>& a, bool invert) {
         // DIF: natural order -> bit-reversed order.
         if (cached) {
             int h = levels - 1;
-            for (int len = n; len > 1; len >>= 1, --h) {
+            for (int len = n; len > 2; len >>= 1, --h) {
                 const int half = len >> 1;
                 const std::vector<std::uint32_t>& w = table->fwd[h];
+                const std::vector<std::uint32_t>& wh = table->fwd_hi[h];
                 for (int i = 0; i < n; i += len) {
                     for (int j = 0; j < half; ++j) {
                         const std::uint32_t u = a[i + j], v = a[i + j + half];
                         const std::uint32_t s = add_mod<MOD>(u, v);
                         const std::uint32_t d = sub_mod<MOD>(u, v);
                         a[i + j] = s;
-                        a[i + j + half] = std::uint32_t(dlimb(d) * w[j] % MOD);
+                        // The twiddle only feeds this one store, so the
+                        // high-multiply form hides its latency better than the
+                        // 64-bit remainder it replaces.
+                        a[i + j + half] = mul_mod_shoup<MOD>(d, w[j], wh[j]);
                     }
                 }
+            }
+            // Last stage: every twiddle is one, so the multiply disappears.
+            for (int i = 0; i < n; i += 2) {
+                const std::uint32_t u = a[i], v = a[i + 1];
+                a[i] = add_mod<MOD>(u, v);
+                a[i + 1] = sub_mod<MOD>(u, v);
             }
         } else {
             for (int len = n; len > 1; len >>= 1) {
@@ -423,7 +464,13 @@ inline void transform(std::vector<std::uint32_t>& a, bool invert) {
         }
     } else {
         // DIT: bit-reversed order -> natural order.
-        for (int len = 2; len <= n; len <<= 1) {
+        // First stage: every twiddle is one, so the multiply disappears.
+        for (int i = 0; i < n; i += 2) {
+            const std::uint32_t u = a[i], v = a[i + 1];
+            a[i] = add_mod<MOD>(u, v);
+            a[i + 1] = sub_mod<MOD>(u, v);
+        }
+        for (int len = 4; len <= n; len <<= 1) {
             const int half = len >> 1;
             const int h = __builtin_ctz(std::uint32_t(half));
             if (cached) {
@@ -499,6 +546,38 @@ inline std::vector<std::uint32_t> convolution_mod_sqr(
 
 } // namespace ntt
 
+// Recombines the two convolution results by CRT and packs them back into
+// 32-bit limbs.  Each coefficient fits in MOD1*MOD2, so the 16-bit digits are
+// emitted as they are produced and only the (single digit wide) carry is left
+// over at the end - no intermediate coefficient array.
+template <std::uint32_t MOD1, std::uint32_t MOD2>
+inline vec crt_pack(const std::vector<std::uint32_t>& r1,
+                    const std::vector<std::uint32_t>& r2,
+                    size_t need) {
+    const std::uint32_t inv = ntt::mod_pow(MOD1 % MOD2, MOD2 - 2, MOD2);
+    const std::uint32_t inv_hi = std::uint32_t((dlimb(inv) << LIMB_BITS) / MOD2);
+    vec out((need + 2) >> 1, 0);
+    dlimb carry = 0;
+    for (size_t i = 0; i < need; ++i) {
+        const dlimb diff = r2[i] >= r1[i] ? dlimb(r2[i] - r1[i])
+                                          : dlimb(MOD2) + r2[i] - r1[i];
+        const std::uint32_t t =
+            ntt::mul_mod_shoup<MOD2>(std::uint32_t(diff), inv, inv_hi);
+        const dlimb cur = dlimb(r1[i]) + dlimb(MOD1) * t + carry;
+        const limb low = limb(cur & 0xffffu);
+        if (i & 1) out[i >> 1] |= low << 16;
+        else out[i >> 1] = low;
+        carry = cur >> 16;
+    }
+    if (carry) {
+        const limb top = limb(carry & 0xffffu);
+        if (need & 1) out[need >> 1] |= top << 16;
+        else out[need >> 1] = top;
+    }
+    trim(out);
+    return out;
+}
+
 template <std::uint32_t MOD1, std::uint32_t ROOT1,
           std::uint32_t MOD2, std::uint32_t ROOT2>
 inline vec mul_ntt_pair(
@@ -511,34 +590,7 @@ inline vec mul_ntt_pair(
     // floating-point error analysis.
     const std::vector<std::uint32_t> r1 = ntt::convolution_mod<MOD1, ROOT1>(x, y, n, need);
     const std::vector<std::uint32_t> r2 = ntt::convolution_mod<MOD2, ROOT2>(x, y, n, need);
-    const std::uint32_t inv = ntt::mod_pow(MOD1 % MOD2, MOD2 - 2, MOD2);
-    std::vector<dlimb> c(need, 0);
-    for (size_t i = 0; i < need; ++i) {
-        dlimb diff = r2[i] >= r1[i] ? dlimb(r2[i] - r1[i])
-                                    : dlimb(MOD2) + r2[i] - r1[i];
-        dlimb t = diff * inv % MOD2;
-        c[i] = dlimb(r1[i]) + dlimb(MOD1) * t;
-    }
-
-    std::vector<std::uint16_t> digits(need + 2, 0);
-    dlimb carry = 0;
-    for (size_t i = 0; i < need; ++i) {
-        dlimb cur = c[i] + carry;
-        digits[i] = std::uint16_t(cur & 0xffffu);
-        carry = cur >> 16;
-    }
-    size_t p = need;
-    while (carry) {
-        digits[p++] = std::uint16_t(carry & 0xffffu);
-        carry >>= 16;
-    }
-    vec out((p + 1) >> 1, 0);
-    for (size_t i = 0; i < p; ++i) {
-        if (i & 1) out[i >> 1] |= limb(digits[i]) << 16;
-        else out[i >> 1] |= digits[i];
-    }
-    trim(out);
-    return out;
+    return crt_pack<MOD1, MOD2>(r1, r2, need);
 }
 
 inline vec mul_ntt(const vec& a, const vec& b) {
@@ -576,6 +628,83 @@ inline vec mul_ntt(const vec& a, const vec& b) {
         "this is about 3.2e8 decimal digits");
 }
 
+// Decimal conversion divides by the same power of ten at every node of a
+// level, so the forward transform of that divisor - and of the reciprocal used
+// to estimate the quotient - can be computed once and reused.  A product
+// against a stored transform then costs one transform instead of two.  Only
+// the small-prime transforms are kept, which covers conversions of a few
+// million digits within a bounded amount of memory.
+constexpr size_t CACHED_FACTOR_MAX_SLOTS = size_t(1) << 19;
+
+struct cached_ntt_factor {
+    size_t n = 0;      // slot count of the stored transform, 0 when unused
+    size_t digits = 0; // 16-bit digit count of the operand
+    std::vector<std::uint32_t> t1, t2;
+};
+
+inline size_t ntt_slots_for(size_t need) {
+    size_t n = 1;
+    while (n < need) n <<= 1;
+    return n;
+}
+
+inline void split_digits(const vec& a, std::vector<std::uint32_t>& d) {
+    d.clear();
+    d.reserve(a.size() * 2);
+    for (limb v : a) {
+        d.push_back(v & 0xffffu);
+        d.push_back(v >> 16);
+    }
+    trim(d);
+}
+
+// Forward transform of b at exactly n slots, for reuse by many products.
+inline bool build_cached_factor(const vec& b, cached_ntt_factor& f, size_t n) {
+    if (n == 0 || n > ntt::MAX_SMALL || n > CACHED_FACTOR_MAX_SLOTS) return false;
+    std::vector<std::uint32_t> d;
+    split_digits(b, d);
+    if (d.empty() || d.size() > n) return false;
+    f.n = n;
+    f.digits = d.size();
+    f.t1.assign(n, 0);
+    f.t2.assign(n, 0);
+    std::copy(d.begin(), d.end(), f.t1.begin());
+    std::copy(d.begin(), d.end(), f.t2.begin());
+    ntt::transform<ntt::SMALL_MOD1, ntt::SMALL_ROOT>(f.t1, false);
+    ntt::transform<ntt::SMALL_MOD2, ntt::SMALL_ROOT>(f.t2, false);
+    return true;
+}
+
+template <std::uint32_t MOD, std::uint32_t ROOT>
+inline void conv_against_transform(const std::vector<std::uint32_t>& d,
+                                   const std::vector<std::uint32_t>& tb,
+                                   size_t n, size_t need,
+                                   std::vector<std::uint32_t>& out) {
+    std::vector<std::uint32_t> fa(n, 0);
+    for (size_t i = 0; i < d.size(); ++i) fa[i] = d[i] % MOD;
+    ntt::transform<MOD, ROOT>(fa, false);
+    for (size_t i = 0; i < n; ++i)
+        fa[i] = std::uint32_t(dlimb(fa[i]) * tb[i] % MOD);
+    ntt::transform<MOD, ROOT>(fa, true);
+    out.assign(fa.begin(), fa.begin() + need);
+}
+
+// a * b where b has a stored transform.  Falls back to the normal path when
+// the product does not land on the stored slot count, so the caller never pays
+// for a padded transform.
+inline vec mul_mag_cached(const vec& a, const vec& b, const cached_ntt_factor* f) {
+    if (!f || f->n == 0 || a.empty() || b.empty()) return mul_mag(a, b);
+    std::vector<std::uint32_t> da;
+    split_digits(a, da);
+    if (da.empty()) return vec();
+    const size_t need = da.size() + f->digits - 1;
+    if (need > f->n || ntt_slots_for(need) != f->n) return mul_mag(a, b);
+    std::vector<std::uint32_t> r1, r2;
+    conv_against_transform<ntt::SMALL_MOD1, ntt::SMALL_ROOT>(da, f->t1, f->n, need, r1);
+    conv_against_transform<ntt::SMALL_MOD2, ntt::SMALL_ROOT>(da, f->t2, f->n, need, r2);
+    return crt_pack<ntt::SMALL_MOD1, ntt::SMALL_MOD2>(r1, r2, need);
+}
+
 template <std::uint32_t MOD1, std::uint32_t ROOT1,
           std::uint32_t MOD2, std::uint32_t ROOT2>
 inline vec sqr_ntt_pair(const std::vector<std::uint32_t>& x, size_t n, size_t need) {
@@ -583,33 +712,7 @@ inline vec sqr_ntt_pair(const std::vector<std::uint32_t>& x, size_t n, size_t ne
         ntt::convolution_mod_sqr<MOD1, ROOT1>(x, n, need);
     const std::vector<std::uint32_t> r2 =
         ntt::convolution_mod_sqr<MOD2, ROOT2>(x, n, need);
-    const std::uint32_t inv = ntt::mod_pow(MOD1 % MOD2, MOD2 - 2, MOD2);
-    std::vector<dlimb> c(need, 0);
-    for (size_t i = 0; i < need; ++i) {
-        dlimb diff = r2[i] >= r1[i] ? dlimb(r2[i] - r1[i])
-                                    : dlimb(MOD2) + r2[i] - r1[i];
-        dlimb t = diff * inv % MOD2;
-        c[i] = dlimb(r1[i]) + dlimb(MOD1) * t;
-    }
-    std::vector<std::uint16_t> digits(need + 2, 0);
-    dlimb carry = 0;
-    for (size_t i = 0; i < need; ++i) {
-        dlimb cur = c[i] + carry;
-        digits[i] = std::uint16_t(cur & 0xffffu);
-        carry = cur >> 16;
-    }
-    size_t p = need;
-    while (carry) {
-        digits[p++] = std::uint16_t(carry & 0xffffu);
-        carry >>= 16;
-    }
-    vec out((p + 1) >> 1, 0);
-    for (size_t i = 0; i < p; ++i) {
-        if (i & 1) out[i >> 1] |= limb(digits[i]) << 16;
-        else out[i >> 1] |= digits[i];
-    }
-    trim(out);
-    return out;
+    return crt_pack<MOD1, MOD2>(r1, r2, need);
 }
 
 inline vec sqr_ntt(const vec& a) {
@@ -651,6 +754,18 @@ inline vec mul_mag(const vec& a, const vec& b) {
     const size_t mx = std::max(a.size(), b.size());
     if (mn <= KARATSUBA_THRESHOLD) return mul_basic(a, b);
     if (mx >= FFT_THRESHOLD && mn >= FFT_THRESHOLD / 2) return mul_ntt(a, b);
+    // Below that the choice depends on how much the transform has to pad: the
+    // convolution needs 2*(mx+mn) 16-bit slots rounded up to a power of two,
+    // and paying for slots that stay zero is only worth it when the padding
+    // wastes less than a third of the transform.  Shapes that land just above
+    // a power of two (640 by 512 limbs, say) are better off with Karatsuba,
+    // which has no such step.
+    if (mx >= FFT_MIN_OPERAND) {
+        const size_t need = 2 * (mx + mn);
+        size_t slots = 1;
+        while (slots < need) slots <<= 1;
+        if (3 * need >= 2 * slots) return mul_ntt(a, b);
+    }
     if (mn >= TOOM_THRESHOLD && mx <= mn * 2) return mul_toom3(a, b);
     return mul_karatsuba(a, b);
 }
@@ -722,6 +837,19 @@ inline void divmod_mag_small(const vec& a, limb d, vec& q, limb& rem) {
     }
     rem = limb(r);
     trim(q);
+}
+
+// Same as divmod_mag_small but in place, for callers that break a value up
+// chunk by chunk and would otherwise copy the shrinking remainder every time.
+inline void divmod_mag_small_inplace(vec& a, limb d, limb& rem) {
+    dlimb r = 0;
+    for (size_t i = a.size(); i--;) {
+        const dlimb cur = (r << LIMB_BITS) | a[i];
+        a[i] = limb(cur / d);
+        r = cur % d;
+    }
+    rem = limb(r);
+    trim(a);
 }
 
 inline void divmod_mag_knuth(const vec& u0, const vec& v, vec& q, vec& r) {
@@ -896,19 +1024,48 @@ inline vec inv_mag(const vec& a) {
 inline bool divmod_mag_recip(const vec& u, const vec& v, vec& q, vec& r) {
     const size_t n0 = u.size();
     size_t m = v.size();
-    if (m <= 32 || n0 - m <= 32) return false;
+    // n0 <= m is written as a separate test: with u shorter than v the
+    // subtraction below would wrap and the narrow-quotient branch would be
+    // entered with a huge limb count.  Knuth handles u < v directly.
+    if (m <= 32 || n0 <= m + 32) return false;
 
     vec us = u;
     vec vs = v;
+    vec qq;
+    const size_t narrow = n0 - m + 1;             // quotient limb bound
+    if (n0 <= m + m / 2 && m > narrow + 2) {
+        // Narrow quotient: the result only depends on the top K+2 limbs of the
+        // divisor, so the Newton reciprocal is built from that slice instead of
+        // from the whole divisor.  The dropped low limbs shift the estimate by
+        // less than one unit, as the corrections below then settle.
+        const size_t k = narrow;
+        const size_t s = k + 2;
+        const vec vh = shift_right_mag(v, 32 * (m - s));
+        const vec rec = inv_mag(vh);
+        const vec uh = shift_right_mag(u, 32 * (n0 - s));
+        qq = shift_right_mag(mul_mag(uh, rec), 64 * s - 32 * (k - 1));
+    } else {
     if (n0 > 2 * m) {
         const size_t sh = n0 - 2 * m;
         us = shift_left_mag(u, 32 * sh);
         vs = shift_left_mag(v, 32 * sh);
         m = n0 - m;
     }
-
     const vec inv = inv_mag(vs);
-    vec qq = shift_right_mag(mul_mag(us, inv), 64 * m);
+    // Barrett with both operands of the estimate truncated.  Only the top
+    // |us|-m+1 limbs of the dividend matter (the dropped 32*(m-1) low bits
+    // carry less than one unit), and only the top qlimbs+2 limbs of the
+    // reciprocal matter (the dropped part carries less than one part in 2^32).
+    // A quotient far narrower than the divisor therefore costs a product of
+    // quotient width instead of a full one.
+    const size_t qlimbs = us.size() - m + 1;
+    const size_t keep = qlimbs + 2;
+    const size_t inv_cut = inv.size() > keep ? inv.size() - keep : 0;
+    const vec top = shift_right_mag(us, 32 * (m - 1));
+    const vec inv_h = inv_cut ? shift_right_mag(inv, 32 * inv_cut) : inv;
+    const size_t shift = 64 * m - 32 * (m - 1) - 32 * inv_cut;
+    qq = shift_right_mag(mul_mag(top, inv_h), shift);
+    }
     vec pv = mul_mag(qq, v);
     int guard = 0;
     while (cmp_mag(pv, u) > 0) {
@@ -937,11 +1094,22 @@ inline void divmod_mag(const vec& u, const vec& v, vec& q, vec& r) {
 }
 
 inline void divmod_by_reciprocal(const vec& u, const vec& v, const vec& rec,
-                                 size_t scale_bits, vec& q, vec& r) {
+                                 size_t scale_bits, vec& q, vec& r,
+                                 const cached_ntt_factor* rec_factor = nullptr,
+                                 const cached_ntt_factor* div_factor = nullptr) {
     // Barrett-style division with a precomputed fixed-point reciprocal of v.
+    //
+    // Only the top limbs of u reach the quotient: with m = |v| the dropped
+    // 32*(m-1) low bits of u contribute less than one to u*rec/2^scale, so the
+    // product that estimates q can be taken with operands of the size of the
+    // divisor rather than of the dividend.  The estimate is then at most two
+    // short of floor(u/v), which the corrections below take care of.
     const vec one(1, 1);
-    q = shift_right_mag(mul_mag(u, rec), scale_bits);
-    vec pv = mul_mag(q, v);
+    const size_t m = v.size();
+    const size_t cut = 32 * (m - 1);
+    const vec hi = cut ? shift_right_mag(u, cut) : u;
+    q = shift_right_mag(mul_mag_cached(hi, rec, rec_factor), scale_bits - cut);
+    vec pv = mul_mag_cached(q, v, div_factor);
     while (cmp_mag(pv, u) > 0) {
         q = sub_mag(q, one);
         pv = sub_mag(pv, v);
@@ -981,27 +1149,98 @@ class BigInt {
         return bigint_detail::cmp_mag(a.d_, b.d_);
     }
 
-    static std::string decimal_chunk(limb v);
+    // Writes exactly nine zero padded decimal digits of v at out[pos].
+    static void write_chunk9(std::string& out, size_t pos, limb v);
     // Powers of 10^(9*2^k) and their fixed-point reciprocals only depend on the
     // level, so they are computed once per program instead of once per call.
     struct decimal_tables {
         std::vector<BigInt> powers;
         std::vector<BigInt> recips;
         std::vector<size_t> scales;
+        // Forward transforms of the divisors and their reciprocals.  Nodes of
+        // one level divide by the same power of ten, so these are shared.
+        std::vector<bigint_detail::cached_ntt_factor> rec_factors;
+        std::vector<bigint_detail::cached_ntt_factor> div_factors;
     };
 
     static const decimal_tables& decimal_tables_for(int level) {
-        static decimal_tables tables;
-        while ((int)tables.powers.size() < level) {
-            const int k = (int)tables.powers.size();
-            if (k == 0) tables.powers.push_back(BigInt(1000000000));
-            else tables.powers.push_back(tables.powers.back().sqr());
+        decimal_tables& tables = decimal_tables_store();
+        decimal_powers(level);
+        while ((int)tables.recips.size() < level) {
+            const int k = (int)tables.recips.size();
             const size_t bits = tables.powers[k].bit_length();
             const size_t m = 2 * bits + 64;
             tables.recips.push_back((BigInt(1) << m) / tables.powers[k]);
             tables.scales.push_back(m);
         }
+        ensure_div_factors(tables, level);
+        while ((int)tables.rec_factors.size() < level) {
+            const int k = (int)tables.rec_factors.size();
+            tables.rec_factors.emplace_back();
+            const size_t m = tables.powers[k].d_.size();
+            // Only levels whose products would pick the transform anyway:
+            // below that Karatsuba/Toom is faster and caching a transform
+            // would also force the wrong backend.
+            if (m < bigint_detail::FFT_MIN_OPERAND) continue;
+            std::vector<limb> digits;
+            bigint_detail::split_digits(tables.recips[k].d_, digits);
+            // A node's dividend has at most m+1 limbs above the cut and the
+            // dividend's low limbs are dropped before the product.
+            bigint_detail::build_cached_factor(
+                tables.recips[k].d_, tables.rec_factors[k],
+                bigint_detail::ntt_slots_for(2 * (m + 1) + digits.size() - 1));
+        }
         return tables;
+    }
+
+    // Transform of 10^(9*2^k).  Reading decimals multiplies by it and writing
+    // them multiplies the quotient by it, so both paths share the cache.
+    static void ensure_div_factors(decimal_tables& tables, int level) {
+        while ((int)tables.div_factors.size() < level) {
+            const size_t k = tables.div_factors.size();
+            tables.div_factors.emplace_back();
+            const size_t m = tables.powers[k].d_.size();
+            if (m < bigint_detail::FFT_MIN_OPERAND) continue;
+            std::vector<limb> digits;
+            bigint_detail::split_digits(tables.powers[k].d_, digits);
+            // Both operands of these products are about m limbs wide.
+            bigint_detail::build_cached_factor(
+                tables.powers[k].d_, tables.div_factors[k],
+                bigint_detail::ntt_slots_for(2 * m + digits.size() - 1));
+        }
+    }
+
+    // Powers plus the products that reading decimals performs against them;
+    // the reciprocals that writing needs are only built by
+    // decimal_tables_for.
+    static const decimal_tables& decimal_tables_for_parse(int level) {
+        decimal_tables& tables = decimal_tables_store();
+        decimal_powers(level);
+        ensure_div_factors(tables, level);
+        return tables;
+    }
+
+    // a * 10^(9*2^k) reusing the stored transform of that power.
+    static BigInt scale_by_power(const BigInt& a, const decimal_tables& tables, size_t k) {
+        return from_mag(bigint_detail::mul_mag_cached(a.d_, tables.powers[k].d_,
+                                                      &tables.div_factors[k]),
+                        a.neg_);
+    }
+
+    static decimal_tables& decimal_tables_store() {
+        static decimal_tables tables;
+        return tables;
+    }
+
+    // 10^(9*2^k) for k < level.  Parsing only needs these, so the reciprocals
+    // that to_string adds on top are kept out of this path.
+    static const std::vector<BigInt>& decimal_powers(int level) {
+        decimal_tables& tables = decimal_tables_store();
+        while ((int)tables.powers.size() < level) {
+            if (tables.powers.empty()) tables.powers.push_back(BigInt(1000000000));
+            else tables.powers.push_back(tables.powers.back().sqr());
+        }
+        return tables.powers;
     }
 
     static int ceil_log2_size(size_t x) {
@@ -1013,13 +1252,14 @@ class BigInt {
         }
         return r;
     }
+    // Writes the value of x as exactly 9 * 2^level decimal digits at out[pos].
+    // Every node of the recursion fills its whole slot, so the digits can be
+    // emitted straight into their final place without any string growth.
     static void to_decimal_rec(const BigInt& x, int level,
-                               const std::vector<BigInt>& powers,
-                               const std::vector<BigInt>& recips,
-                               const std::vector<size_t>& scales,
-                               std::string& out);
+                               const decimal_tables& tables,
+                               std::string& out, size_t pos);
     static BigInt from_decimal_rec(const std::vector<limb>& chunks, size_t l, int level,
-                                   const std::vector<BigInt>& powers);
+                                   const decimal_tables& tables);
 
 public:
     static constexpr size_t ntt_max_slots() { return size_t(1) << 27; }
@@ -1076,7 +1316,10 @@ public:
             ++i;
         }
         if (i == text.size()) throw std::invalid_argument("empty number");
-        if (base == 10 && text.size() - i >= 4096) {
+        // Beyond a few dozen chunks the divide-and-conquer reader beats the
+        // digit-at-a-time loop by an order of magnitude; below it the loop is
+        // cheaper than setting the recursion up.
+        if (base == 10 && text.size() - i >= 128) {
             const size_t n = text.size() - i;
             const size_t chunks = (n + 8) / 9;
             const int level = ceil_log2_size(chunks);
@@ -1094,12 +1337,7 @@ public:
                 }
                 cv[total - chunks + k] = limb(v);
             }
-            std::vector<BigInt> powers;
-            powers.reserve(level);
-            powers.push_back(BigInt(1000000000));
-            for (int k = 1; k < level; ++k)
-                powers.push_back(powers.back() * powers.back());
-            BigInt r = from_decimal_rec(cv, 0, level, powers);
+            BigInt r = from_decimal_rec(cv, 0, level, decimal_tables_for_parse(level));
             r.neg_ = neg && !r.d_.empty();
             return r;
         }
@@ -1121,12 +1359,14 @@ public:
     std::string to_string(int base = 10) const {
         if (base < 2 || base > 36) throw std::invalid_argument("invalid base");
         if (is_zero()) return "0";
-        if (base == 10 && d_.size() >= 64) {
+        // From about a dozen limbs on the divide-and-conquer writer is ahead
+        // of the chunk-at-a-time loop, so it takes over early.
+        if (base == 10 && d_.size() >= 16) {
             size_t chunks = (bigint_detail::bit_length_mag(d_) + 28) / 29;
             const int level = ceil_log2_size(chunks);
             const decimal_tables& tables = decimal_tables_for(level);
-            std::string out;
-            to_decimal_rec(abs(), level, tables.powers, tables.recips, tables.scales, out);
+            std::string out(size_t(9) << level, '0');
+            to_decimal_rec(abs(), level, tables, out, 0);
             size_t p = out.find_first_not_of('0');
             if (p == std::string::npos) out = "0";
             else if (p) out.erase(0, p);
@@ -1277,11 +1517,34 @@ public:
         if (is_negative()) throw std::domain_error("sqrt of a negative BigInt");
         if (*this <= BigInt(1)) return *this;
         const size_t bits = bit_length();
-        BigInt x = BigInt(1) << ((bits + 1) / 2 + 1);
+        const size_t target = (bits + 1) / 2;   // bits of the result
+        // Newton with doubling precision: x always approximates the top
+        // `prec` bits of the root, and each round divides a number of about
+        // twice that width, so the loop costs a couple of the last round's
+        // divisions instead of one full-width division per round.
+        size_t prec = std::min<size_t>(target, 32);
+        BigInt m = *this >> (2 * (target - prec));
+        BigInt x = BigInt(1) << ((m.bit_length() + 1) / 2);
+        // Each round converges at the current precision and then steps just
+        // above the root: Newton only decreases, so starting above keeps the
+        // estimate an upper bound and the next round stays well behaved.
         for (;;) {
-            const BigInt y = (x + *this / x) >> 1;
+            const BigInt y = (x + m / x) >> 1;
             if (y >= x) break;
             x = y;
+        }
+        x += BigInt(1);
+        while (prec < target) {
+            const size_t next = std::min(target, 2 * prec);
+            x = x << (next - prec);
+            m = *this >> (2 * (target - next));
+            for (;;) {
+                const BigInt y = (x + m / x) >> 1;
+                if (y >= x) break;
+                x = y;
+            }
+            x += BigInt(1);
+            prec = next;
         }
         while (x.sqr() > *this) x -= BigInt(1);
         while ((x + BigInt(1)).sqr() <= *this) x += BigInt(1);
@@ -1294,12 +1557,31 @@ public:
         if (k == 2) return sqrt();
         if (is_negative()) throw std::domain_error("nroot of a negative BigInt");
         const size_t bits = bit_length();
-        BigInt x = BigInt(1) << ((bits + k - 1) / k + 1);
+        const size_t target = (bits + k - 1) / k;   // bits of the result
         const BigInt kk((long long)k);
+        // Same doubling-precision scheme as sqrt.
+        size_t prec = std::min<size_t>(target, 32);
+        BigInt m = *this >> (k * (target - prec));
+        BigInt x = BigInt(1) << ((m.bit_length() + k - 1) / k);
+        // Same scheme as sqrt: converge at the precision of the round, then
+        // step just above the root so the estimate stays an upper bound.
         for (;;) {
-            const BigInt y = ((kk - BigInt(1)) * x + *this / x.pow(k - 1)) / kk;
+            const BigInt y = ((kk - BigInt(1)) * x + m / x.pow(k - 1)) / kk;
             if (y >= x) break;
             x = y;
+        }
+        x += BigInt(1);
+        while (prec < target) {
+            const size_t next = std::min(target, 2 * prec);
+            x = x << (next - prec);
+            m = *this >> (k * (target - next));
+            for (;;) {
+                const BigInt y = ((kk - BigInt(1)) * x + m / x.pow(k - 1)) / kk;
+                if (y >= x) break;
+                x = y;
+            }
+            x += BigInt(1);
+            prec = next;
         }
         while (x.pow(k) > *this) x -= BigInt(1);
         while ((x + BigInt(1)).pow(k) <= *this) x += BigInt(1);
@@ -1327,54 +1609,62 @@ bool operator<=(const BigInt& a, const BigInt& b);
 bool operator>=(const BigInt& a, const BigInt& b);
 std::ostream& operator<<(std::ostream& os, const BigInt& x);
 
-inline std::string BigInt::decimal_chunk(limb v) {
-    std::string s = std::to_string((unsigned long long)v);
-    if (s.size() < 9) s.insert(s.begin(), 9 - s.size(), '0');
-    return s;
+inline void BigInt::write_chunk9(std::string& out, size_t pos, limb v) {
+    for (int i = 8; i >= 0; --i) {
+        out[pos + size_t(i)] = char('0' + v % 10);
+        v /= 10;
+    }
 }
 
 inline void BigInt::to_decimal_rec(const BigInt& x, int level,
-                                   const std::vector<BigInt>& powers,
-                                   const std::vector<BigInt>& recips,
-                                   const std::vector<size_t>& scales,
-                                   std::string& out) {
+                                   const decimal_tables& tables,
+                                   std::string& out, size_t pos) {
     if (level == 0) {
-        out += decimal_chunk(x.is_zero() ? 0 : x.d_[0]);
+        write_chunk9(out, pos, x.is_zero() ? 0 : x.d_[0]);
         return;
     }
-    if (level <= 3) {
-        // Small leftovers (at most 10^72) are converted directly: splitting them
-        // further would spend a Barrett division on every tiny node.
-        std::vector<limb> chunks;
-        BigInt t = x;
-        while (!t.is_zero()) {
+    if (level <= 5) {
+        // Small leftovers (at most 10^288) are converted by repeated short
+        // division: splitting them further would spend a Barrett division on
+        // every tiny node, and the measurements put the crossover here.  The
+        // low chunks are the significant ones; the leading ones stay zero.
+        limb chunks[32];
+        size_t used = 0;
+        vec t = x.d_;
+        while (!t.empty()) {
             limb rem = 0;
-            t = t.div_small(1000000000u, &rem);
-            chunks.push_back(rem);
+            bigint_detail::divmod_mag_small_inplace(t, 1000000000u, rem);
+            chunks[used++] = rem;
         }
-        if (chunks.empty()) chunks.push_back(0);
-        out += decimal_chunk(chunks.back());
-        for (size_t i = chunks.size() - 1; i-- > 0;) out += decimal_chunk(chunks[i]);
+        if (used == 0) chunks[used++] = 0;
+        const size_t width = size_t(1) << level;
+        size_t w = pos + 9 * (width - used);
+        std::fill(out.begin() + pos, out.begin() + w, '0');
+        for (size_t i = used; i-- > 0;) {
+            write_chunk9(out, w, chunks[i]);
+            w += 9;
+        }
         return;
     }
     BigInt q, r;
     bigint_detail::divmod_by_reciprocal(
-        x.d_, powers[level - 1].d_, recips[level - 1].d_, scales[level - 1],
-        q.d_, r.d_);
+        x.d_, tables.powers[level - 1].d_, tables.recips[level - 1].d_,
+        tables.scales[level - 1], q.d_, r.d_, &tables.rec_factors[level - 1],
+        &tables.div_factors[level - 1]);
     q.neg_ = false;
     r.neg_ = false;
-    to_decimal_rec(q, level - 1, powers, recips, scales, out);
-    to_decimal_rec(r, level - 1, powers, recips, scales, out);
+    const size_t half = size_t(9) << (level - 1);
+    to_decimal_rec(q, level - 1, tables, out, pos);
+    to_decimal_rec(r, level - 1, tables, out, pos + half);
 }
 
 inline BigInt BigInt::from_decimal_rec(const std::vector<limb>& chunks, size_t l,
-                                       int level,
-                                       const std::vector<BigInt>& powers) {
+                                       int level, const decimal_tables& tables) {
     if (level == 0) return BigInt((long long)chunks[l]);
     const size_t half = size_t(1) << (level - 1);
-    const BigInt a = from_decimal_rec(chunks, l, level - 1, powers);
-    const BigInt b = from_decimal_rec(chunks, l + half, level - 1, powers);
-    return a * powers[level - 1] + b;
+    const BigInt a = from_decimal_rec(chunks, l, level - 1, tables);
+    const BigInt b = from_decimal_rec(chunks, l + half, level - 1, tables);
+    return scale_by_power(a, tables, size_t(level - 1)) + b;
 }
 
 } // namespace mal

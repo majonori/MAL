@@ -81,4 +81,22 @@ int main() {
                   << std::chrono::duration<double, std::milli>(t2 - t1).count()
                   << " ms (" << out.size() << " chars)\n";
     }
+    {
+        // Plain integer decimal conversion: the divide-and-conquer split is
+        // dominated by its multiplications, so this is the number to watch.
+        for (size_t n : {4096u, 16384u, 65536u}) {
+            BigInt a = BigInt::from_limbs(random_limbs(n, rng));
+            std::string s = a.to_string();   // also warms the decimal tables
+            auto t0 = Clock::now();
+            std::string again = a.to_string();
+            auto t1 = Clock::now();
+            BigInt b = BigInt::from_string(s);
+            auto t2 = Clock::now();
+            std::cout << "bigint decimal " << s.size() << " digits: print "
+                      << std::chrono::duration<double, std::milli>(t1 - t0).count()
+                      << " ms, parse "
+                      << std::chrono::duration<double, std::milli>(t2 - t1).count()
+                      << " ms (" << (b == a && again == s) << ")\n";
+        }
+    }
 }

@@ -96,8 +96,7 @@ Precision ranges, algorithm crossovers and memory/time estimates for the
 high-precision module are documented in
 [`bundles/hp/README.md`](bundles/hp/README.md).
 
-The convolution module's butterfly structure (DIF forward + inverse-root DIT
-inverse, no bit-reversal permutation) and its measured speed are documented in
+The convolution module's algorithms and its measured speed are documented in
 [`bundles/poly/README.md`](bundles/poly/README.md).
 
 The repository does not keep contestant-submission examples that embed MAL.
