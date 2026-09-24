@@ -135,7 +135,12 @@ private:
 `omega(n)` 是**不含重数**的素因子数。模数必须是素数；上述指数、积分
 使用的 `Omega(n)` 对 `n<=N` 必须在模数下非零（本库使用的正常数组规模满足）。
 
-构建、验证：
+## 覆盖范围
+
+涵盖形式 DGF 的常规运算：加、乘、除、求逆、对数、指数、幂，以及
+`zeta` / `mu` / `phi` / `id` / `epsilon` 等基本函数；块筛等算法不在其中。
+
+## 测试
 
 ```bash
 g++ -std=c++14 -O2 scripts/build.cpp -o /tmp/mal_build
@@ -145,3 +150,5 @@ g++ -std=c++14 -O2 tests/dgf/test_dgf.cpp -o /tmp/mal_dgf_test
 g++ -std=c++14 -O3 tests/benchmark/bench_dgf.cpp -o /tmp/mal_bench_dgf
 /tmp/mal_bench_dgf 1000000
 ```
+
+`tests/docs/check_declarations.py` 会把本文档的声明块抽出来真正编译、链接并运行。

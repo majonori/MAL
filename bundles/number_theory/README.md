@@ -43,3 +43,14 @@ int main() {
               << mal::number_theory::is_prime(2305843009213693951ULL) << '\n';
 }
 ```
+
+## 测试
+
+```bash
+g++ -std=c++14 -O2 scripts/build.cpp -o /tmp/mal_build
+/tmp/mal_build --all include bundles
+g++ -std=c++14 -O2 tests/number_theory/test_number_theory.cpp -o /tmp/mal_nt_test
+/tmp/mal_nt_test
+```
+
+`tests/docs/check_declarations.py` 会把本文档的声明块抽出来真正编译、链接并运行。
