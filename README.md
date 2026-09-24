@@ -97,10 +97,10 @@ MAL/
 └── TUTORIAL.md          # 选手教程：复制粘贴使用 MAL
 ```
 
-高精度模块的算法分层、规模上限与内存/时间量级见
+高精度模块的算法分层与规模上限见
 [`bundles/hp/README.md`](bundles/hp/README.md)。
 
-卷积模块的算法与实测速度见
+卷积模块的算法见
 [`bundles/poly/README.md`](bundles/poly/README.md)。
 
 仓库不保存内嵌 MAL 实现的选手提交示例。题目侧的 `interactive_lib.cpp`
