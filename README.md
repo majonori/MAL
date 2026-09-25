@@ -61,6 +61,12 @@ MAL/
 │   ├── number_theory/
 │   │   ├── main.cpp           # 数论模块合并、压行版本
 │   │   └── README.md          # 筛法与素性测试声明块
+│   ├── sieve/
+│   │   ├── main.cpp           # 块筛模块压行版（自包含）
+│   │   ├── README.md          # 块筛接口表与最小示例
+│   │   ├── GUIDE.md           # 按《DGF 与块筛浅谈》目录的导读
+│   │   ├── IMPLEMENTATION.md  # 接口前提、复杂度来源与本机基准
+│   │   └── sbt-one-log.md     # D_x<1,1> 的推导
 │   ├── remote/
 │   │   ├── main.cpp           # 跨编译单元薄接口发布版
 │   │   └── README.md          # 薄接口声明：选手复制这一段
@@ -71,6 +77,9 @@ MAL/
 │   ├── 1.in ... 10.ans        # 10 组数据
 │   ├── generate_interface.py  # 接口生成脚本
 │   └── data.zip               # 洛谷上传数据包
+├── examples/P17465/     # 块筛接口的完整用法示例（动态 Bell 级数）
+│   ├── P17465.cpp             # 引用 include/ 的参考实现
+│   └── P17465_submission.cpp  # 压行自包含的提交版
 ├── include/             # 开发：模块化源码
 │   ├── common/
 │   │   ├── consts.hpp
@@ -280,6 +289,7 @@ std::string bigint_add(const std::string& a, const std::string& b);
 | poly | [`bundles/poly/README.md`](bundles/poly/README.md#选手复制这一段) | `mal::ntt_mul`、`mal::fft_mul` 等卷积接口 |
 | dgf | [`bundles/dgf/README.md`](bundles/dgf/README.md#选手复制这一段) | zeta/Möbius、gcd/lcm、Dirichlet 卷积与形式 DGF 运算 |
 | number_theory | [`bundles/number_theory/README.md`](bundles/number_theory/README.md#选手复制这一段) | 线性筛、φ/μ 表、64 位素性测试 |
+| sieve | [`bundles/sieve/README.md`](bundles/sieve/README.md) | 商块前缀上的卷积/杜教筛/PN 筛/Min25/二维 PN/SBT，模板接口随头文件使用 |
 
 各模块的声明块都由 `tests/docs/check_declarations.py` 逐个编译、
 与 `bundles/interactive_lib.cpp` 链接并运行验证。

@@ -53,6 +53,12 @@ MODULE_EXAMPLES = {
             "1.2500000000000000000000000000000000000000000000000000000000000000000000000000000",
         ],
     },
+    # 筛法模块带模板接口，例子按“把压行版一起编译”的用法检查。
+    "bundles/sieve/README.md": {
+        "prepend": "",     # 例子本身已经 include 了压行版
+        "stdin": "",
+        "expect": ["7069", "3190", "1000", "7069"],
+    },
 }
 
 # Input and expected first line for every complete submission template: the
@@ -454,9 +460,9 @@ int main() {
                 exe = tmp / (doc.parent.name + "_example")
                 res = compile_and_link(sources, exe, tmp)
                 if res.returncode:
+                    head = res.stderr.strip()[:800]
                     failures.append(
-                        f"copy-paste example in {rel} does not build:\n"
-                        f"{res.stderr.strip()}")
+                        f"copy-paste example in {rel} does not build:\n{head}")
                     continue
                 got = run([exe], input=spec["stdin"], capture_output=True,
                           text=True).stdout.strip().splitlines()

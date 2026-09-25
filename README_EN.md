@@ -56,6 +56,12 @@ MAL/
 │   ├── number_theory/
 │   │   ├── main.cpp           # Merged, minified number theory module
 │   │   └── README.md          # Sieve and primality declarations
+│   ├── sieve/
+│   │   ├── main.cpp           # Minified self-contained block-sieve bundle
+│   │   ├── README.md          # Block-sieve interface table and example
+│   │   ├── GUIDE.md           # Reading guide along the DGF/block-sieve article
+│   │   ├── IMPLEMENTATION.md  # Preconditions, complexity sources, local benchmarks
+│   │   └── sbt-one-log.md     # Derivation of D_x<1,1>
 │   ├── remote/
 │   │   ├── main.cpp           # Cross-TU thin interface release
 │   │   └── README.md          # Copy-paste declaration block
@@ -66,6 +72,9 @@ MAL/
 │   ├── 1.in ... 10.ans        # 10 test cases
 │   ├── generate_interface.py  # Interface generator
 │   └── data.zip               # Luogu upload package
+├── examples/P17465/     # Full usage example of the block-sieve interfaces
+│   ├── P17465.cpp             # Reference solution including include/
+│   └── P17465_submission.cpp  # Minified self-contained submission
 ├── include/             # Development: modular source code
 │   ├── common/
 │   │   ├── consts.hpp
@@ -123,6 +132,12 @@ documented in [`bundles/dgf/README.md`](bundles/dgf/README.md).
 
 The sieve and 64-bit primality interfaces are documented in
 [`bundles/number_theory/README.md`](bundles/number_theory/README.md).
+
+The block-sieve module (quotient-block convolution, Dujiao, PN sieve, Min25,
+two-dimensional PN, SBT) is documented in
+[`bundles/sieve/README.md`](bundles/sieve/README.md); its interfaces are
+templates, so it is used by including the header (or the minified
+`main.cpp`) rather than by pasting declarations.
 
 The repository does not keep contestant-submission examples that embed MAL.
 The problem-side `interactive_lib.cpp` provides the `mal::` interfaces, and
